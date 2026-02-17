@@ -1,2 +1,2 @@
 reportlab==4.2.5
-selenium==4.27.1
+playwright==1.49.0
