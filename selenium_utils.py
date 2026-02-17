@@ -2,31 +2,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
-from pywinauto import Desktop
 import time
 import io
 from PIL import Image
 from config import USER_EMAIL, HEADINGS, SCREENSHOT_DATA
 
 logged_in = False
-
-
-def wait_for_window(title_pattern, timeout=30):
-    """
-    Wait for a window matching the title pattern to appear within a timeout.
-    """
-    print(f"Waiting for window: '{title_pattern}'")
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        try:
-            # Check for the window on the desktop
-            window = Desktop(backend="uia").window(title_re=title_pattern)
-            if window.exists():
-                return window
-        except Exception:
-            pass
-    raise Exception(f"Timeout: Window '{title_pattern}' did not appear.")
-
 
 def login_user(driver):
     global logged_in

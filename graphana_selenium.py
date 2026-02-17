@@ -60,6 +60,11 @@ try:
         output["duration_over_500ms"] = get_table_data(
             driver, region, HEADINGS["duration_over_500ms"]
         )
+        # duration > 500ms (special cases)
+        scroll_to_widget(driver, HEADINGS["duration_over_500ms_special"])
+        output["duration_over_500ms_special"] = get_table_data(
+            driver, region, HEADINGS["duration_over_500ms_special"]
+        )
         # HTTP 5x
         scroll_to_widget(driver, HEADINGS["http_5x"])
         output["http_5x"] = get_table_data(driver, region, HEADINGS["http_5x"])
