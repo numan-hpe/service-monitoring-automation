@@ -4,33 +4,20 @@ Automates Grafana and Humio dashboard monitoring and report generation.
 
 ## Quick Start
 
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-playwright install chromium
-```
-
-### 2. Configure Settings
-Edit `config.py`:
-- Set your `USER_EMAIL`
-- Update dashboard URLs if needed
-
-### 3. Run Automation
-
-**Run everything (Grafana + Humio):**
-```bash
-python service_monitoring_automation.py
-```
-
-**Run only Grafana:**
-```bash
-python service_monitoring_automation.py --graphana
-```
-
-**Run only Humio:**
-```bash
-python service_monitoring_automation.py --humio
-```
+1. Install:
+	```bash
+	pip install -r requirements.txt
+	playwright install chromium
+	```
+2. Configure:
+	- Set `USER_EMAIL` in `config.py`
+3. Run:
+	```bash
+	python service_monitoring_automation.py
+	```
+	Optional:
+	- Grafana only: `python service_monitoring_automation.py --graphana`
+	- Humio only: `python service_monitoring_automation.py --humio`
 
 ## What It Does
 
@@ -60,32 +47,8 @@ HUMIO_FROM = "now-1d"     # Last 1 day
 HUMIO_TO = "now"
 ```
 
-**Common time range options (works for both Grafana and Humio):**
+**Common time range options:**
 - `now-1h` = Last 1 hour
 - `now-24h` or `now-1d` = Last 24 hours (today)
+- From = `now-48h`or`now-2d` or To = `now-24h`or``now-1d` 
 - `now-7d` = Last 7 days (last week)
-- `now-30d` = Last 30 days (last month)
-
-**Examples:**
-
-Get last week's Grafana data only:
-```python
-GRAPHANA_FROM = "now-7d"
-GRAPHANA_TO = "now"
-```
-```
-
-Get last 3 days of Humio errors only:
-```python
-HUMIO_FROM = "now-3d"
-HUMIO_TO = "now"
-```
-```
-
-Get both Grafana (last 24h) and Humio (last 2 days):
-```python
-GRAPHANA_FROM = "now-24h"
-GRAPHANA_TO = "now"
-HUMIO_FROM = "now-2d"
-HUMIO_TO = "now"
-```
