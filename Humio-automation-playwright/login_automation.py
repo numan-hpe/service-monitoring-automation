@@ -35,20 +35,16 @@ class HumioLoginAutomation:
         self.page = None
 
     async def setup_browser(self):
-        # If shared context is provided, use it directly
         if self.shared_context:
             logger.info("Using shared browser context")
             self.context = self.shared_context
             self.page = self.shared_page or await self.context.new_page()
             return
-        
         logger.info("Launching browser...")
         self.playwright = await async_playwright().start()
-
         launch_kwargs = {"headless": False, "args": ["--start-maximized"]}
         if self.browser_channel != "chromium":
             launch_kwargs["channel"] = self.browser_channel
-
         try:
             self.browser = await self.playwright.chromium.launch(**launch_kwargs)
             self.context = await self.browser.new_context(no_viewport=True)
@@ -85,7 +81,7 @@ class HumioLoginAutomation:
             raise
 
     async def _load_session_cookies(self):
-        """Load cookies exported from Selenium to reuse existing login session."""
+        # Load cookies exported from Selenium to reuse existing login session.
         try:
             if not os.path.exists(SESSION_COOKIES_PATH):
                 return
@@ -93,7 +89,6 @@ class HumioLoginAutomation:
                 cookies = json.load(f)
             if not cookies:
                 return
-            # Playwright expects keys: name, value, domain, path, expires, httpOnly, secure, sameSite
             normalized = []
             for c in cookies:
                 cookie = {
@@ -113,11 +108,9 @@ class HumioLoginAutomation:
                 logger.info("Loaded session cookies from Selenium export")
         except Exception as e:
             logger.warning(f"Could not load session cookies: {e}")
-
     async def fill_email(self):
         logger.info(f"Waiting for email field...")
         try:
-            # Wait for email field to be visible
             await self.page.wait_for_selector(self.email_input, timeout=10000)
             logger.info(f"Filling email: {self.email}")
             await self.page.locator(self.email_input).first.fill(self.email)
@@ -139,7 +132,6 @@ class HumioLoginAutomation:
         logger.info("Waiting for redirect to mylogin.hpe.com...")
         logger.info("Please complete authentication (fingerprint/password) in the browser")
         try:
-            # Wait for Stay signed in page to appear
             await self.page.wait_for_selector(self.yes_button, timeout=180000)
             logger.info("Authentication completed")
         except Exception as e:
@@ -147,10 +139,8 @@ class HumioLoginAutomation:
             raise
 
     async def click_stay_signed_in(self):
-        """Click Yes on 'Stay signed in?' page."""
         logger.info("Clicking Yes on 'Stay signed in?' page...")
         try:
-            # Check 'Don't show this again' checkbox if present
             try:
                 dont_show_checkbox = self.page.locator('input[type="checkbox"]')
                 if await dont_show_checkbox.is_visible():
@@ -158,8 +148,6 @@ class HumioLoginAutomation:
                     logger.info("Checked 'Don't show this again'")
             except Exception:
                 pass
-            
-            # Click Yes button
             await self.page.locator(self.yes_button).first.click()
             logger.info("Yes clicked")
         except Exception as e:
@@ -167,13 +155,10 @@ class HumioLoginAutomation:
             raise
 
     async def wait_for_dashboard(self):
-        """Wait for dashboard to load."""
         logger.info("Waiting for dashboard to load...")
         try:
-            # Wait for URL to change to dashboard
             await self.page.wait_for_url("**/dashboards/**", timeout=60000)
             logger.info("Redirected to dashboard")
-            # Wait for dashboard content to load
             await self.page.wait_for_load_state("networkidle", timeout=60000)
             logger.info("Dashboard loaded")
         except Exception as e:
@@ -181,21 +166,18 @@ class HumioLoginAutomation:
             raise
 
     async def cleanup(self):
-        """Close browser properly to avoid subprocess warnings."""
+        # Close browser and stop Playwright 
         if self.keep_open:
             logger.info("Browser will remain open. Close manually when done.")
-            # Keep script running
             await asyncio.sleep(999999)
         else:
             try:
-                # Close in reverse order: page -> context -> browser -> playwright
                 if self.page:
                     await self.page.close()
                 if self.context and not self.shared_context:
                     await self.context.close()
                 if self.browser:
                     await self.browser.close()
-                # Give time for subprocess cleanup
                 await asyncio.sleep(0.5)
                 if hasattr(self, 'playwright') and self.playwright:
                     await self.playwright.stop()
@@ -204,7 +186,7 @@ class HumioLoginAutomation:
                 logger.warning(f"Error during cleanup: {e}")
 
     async def run(self):
-        """Main workflow."""
+        #Main workflow.
         try:
             await self.setup_browser()
             await self.navigate_to_login_page()
@@ -213,10 +195,9 @@ class HumioLoginAutomation:
             await self.wait_for_auth()
             await self.click_stay_signed_in()
             await self.wait_for_dashboard()
-            
             # Wait a bit to ensure dashboard is fully loaded
             await self.page.wait_for_timeout(3000)
-            
+
             logger.info("\n" + "="*50)
             logger.info("LOGIN COMPLETED - DASHBOARD READY")
             logger.info("="*50)
@@ -234,16 +215,12 @@ class HumioLoginAutomation:
             except Exception as cleanup_error:
                 logger.error(f"Cleanup error: {cleanup_error}")
             return False
-        # No finally block - let caller manage cleanup
-
 
 async def main():
-    """Entry point."""
     # Default dashboard - can be overridden by passing URL
     automation = HumioLoginAutomation()
     success = await automation.run()
     exit(0 if success else 1)
-
 
 if __name__ == "__main__":
     asyncio.run(main())

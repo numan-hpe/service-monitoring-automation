@@ -3,7 +3,7 @@ import sys
 import argparse
 import os
 
-# Ensure UTF-8 encoding for proper Unicode character display on Windows
+# UTF-8 encoding for proper Unicode character display on Windows
 if sys.platform.startswith('win'):
     os.environ['PYTHONIOENCODING'] = 'utf-8'
     sys.stdout.reconfigure(encoding='utf-8')
@@ -55,8 +55,7 @@ async def run_unified_automation(mode="all"):
         try:
             # Don't call setup_browser() for humio only mode
             # Let the humio automation create its own browser and handle login
-            success = await automation.run_all_humio_environments()
-            
+            success = await automation.run_all_humio_environments()   
             if success:
                 # Generate report from Humio results
                 from report_generator import HumioReportGenerator
@@ -66,10 +65,8 @@ async def run_unified_automation(mode="all"):
                 report_lines = HumioReportGenerator.generate_report(automation.humio_results)
                 today_date = date.today().strftime("%Y-%m-%d")
                 report_dir = os.path.join("reports", today_date)
-                os.makedirs(report_dir, exist_ok=True)
-                
-                filepath = HumioReportGenerator.save_report(report_lines, report_dir, print_output=True)
-                
+                os.makedirs(report_dir, exist_ok=True)       
+                filepath = HumioReportGenerator.save_report(report_lines, report_dir, print_output=True)         
                 print("\n" + "="*70)
                 print("HUMIO AUTOMATION COMPLETED SUCCESSFULLY")
                 if filepath:

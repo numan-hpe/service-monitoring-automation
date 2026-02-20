@@ -1,6 +1,3 @@
-"""
-Unified Automation Script - Runs both Grafana and Humio automations in the same browser session
-"""
 import asyncio
 import traceback
 from datetime import date
@@ -12,15 +9,12 @@ from playwright.async_api import async_playwright
 import logging
 import sys
 
-# Add paths for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 humio_dir = os.path.join(current_dir, 'Humio-automation-playwright')
 
-# Add current directory to path for imports
 sys.path.insert(0, current_dir)
 sys.path.insert(0, humio_dir)
 
-# Import config from current directory (graphana-automation-selenium)
 from config import (
     GRAPHANA_REGION_DATA,
     GRAPHANA_HEADINGS,
@@ -32,7 +26,6 @@ from config import (
 from error_utils import _ordinal, _extract_main_error, _summarize_errors
 from report_generator import HumioReportGenerator
 
-# Grafana imports
 from pdf_generator import generate_pdf
 from playwright_utils_async import (
     login_user_async,
@@ -42,21 +35,15 @@ from playwright_utils_async import (
     get_table_data_async,
     take_screenshots_async,
 )
-
-# Humio imports - using new Playwright-based automation
 from dashboard_automation_main import run_all_environments_comprehensive_report_with_context
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-
-class UnifiedAutomation:
-    """Runs both Grafana and Humio automation in the same browser session"""
-    
+class UnifiedAutomation:    
     def __init__(self):
         self.browser = None
         self.context = None
@@ -67,10 +54,9 @@ class UnifiedAutomation:
         self.reports_folder = None  # Will store the reports folder path
     
     async def setup_browser(self):
-        """Initialize browser with shared session"""
+        # Initialize browser with shared session
         logger.info("Launching browser...")
         self.playwright = await async_playwright().start()
-        
         browser_channel = os.getenv("BROWSER_CHANNEL", "msedge").lower()
         launch_kwargs = {
             "headless": False,
@@ -93,15 +79,14 @@ class UnifiedAutomation:
         logger.info("Browser launched successfully")
     
     async def run_graphana_automation(self):
-        """Run Grafana automation for all regions"""
+        # Run Grafana automation for all regions
         logger.info("\n" + "="*70)
         logger.info("STARTING GRAPHANA AUTOMATION")
         logger.info("="*70 + "\n")
         
         try:
             for region, url in GRAPHANA_REGION_DATA.items():
-                output = {}
-                
+                output = {}    
                 # Clear folder contents
                 if os.path.exists(region):
                     for root, dirs, files in os.walk(region, topdown=False):
@@ -113,11 +98,9 @@ class UnifiedAutomation:
                     os.makedirs(region, exist_ok=True)
                 
                 logger.info(f"Opening {region} Grafana dashboard...")
-                await self.page.goto(url, wait_until="domcontentloaded")
-                
+                await self.page.goto(url, wait_until="domcontentloaded")               
                 await login_user_async(self.page)
-                await asyncio.sleep(5)
-                
+                await asyncio.sleep(5)               
                 await close_menu_async(self.page)
                 
                 # SLI
@@ -179,8 +162,7 @@ class UnifiedAutomation:
             generate_pdf(reports_folder, f"service_monitoring_{formatted_datetime}.pdf")
             
             # Store for use in generate_humio_report
-            self.reports_folder = reports_folder
-            
+            self.reports_folder = reports_folder           
             logger.info("\n" + "="*70)
             logger.info("GRAPHANA AUTOMATION COMPLETED SUCCESSFULLY")
             logger.info("="*70 + "\n")
@@ -191,11 +173,9 @@ class UnifiedAutomation:
             return False
     
     async def run_all_humio_environments(self):
-        """Run Humio automation for all environments using new Playwright-based automation"""
         logger.info("\n" + "="*70)
         logger.info("STARTING HUMIO AUTOMATION FOR ALL ENVIRONMENTS")
         logger.info("="*70 + "\n")
-        
         try:
             # Determine report directory based on whether Grafana ran
             if hasattr(self, 'reports_folder') and self.reports_folder:
@@ -227,8 +207,7 @@ class UnifiedAutomation:
             
             # Store results and report lines
             self.humio_results = all_results
-            self.humio_report_lines = report_lines
-            
+            self.humio_report_lines = report_lines 
             if self.humio_results:
                 logger.info("\n" + "="*70)
                 logger.info("HUMIO AUTOMATION COMPLETED SUCCESSFULLY")
@@ -243,7 +222,6 @@ class UnifiedAutomation:
             return False
     
     def generate_humio_report(self):
-        """Generate Humio report once from collected results."""
         if not hasattr(self, 'humio_report_lines'):
             logger.error("No Humio report lines available")
             return None
@@ -267,7 +245,7 @@ class UnifiedAutomation:
         return filepath
     
     async def run_all(self):
-        """Run both Grafana and Humio automation in sequence"""
+        # Run both Grafana and Humio automation in sequence
         humio_report_path = None
         try:
             # Setup browser
@@ -331,7 +309,6 @@ class UnifiedAutomation:
                 logger.error(f"Final cleanup error: {cleanup_error}")
     
     async def cleanup(self):
-        """Close browser and cleanup"""
         try:
             if self.context:
                 await asyncio.wait_for(self.context.close(), timeout=10)
@@ -345,7 +322,6 @@ class UnifiedAutomation:
 
 
 async def main():
-    """Entry point"""
     automation = UnifiedAutomation()
     success = await automation.run_all()
     exit(0 if success else 1)

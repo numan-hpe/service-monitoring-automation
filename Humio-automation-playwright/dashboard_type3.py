@@ -3,24 +3,20 @@
 class DashboardType3Automation:
     
     def __init__(self, page):
-        """Initialize with Playwright page object."""
         self.page = page
         self.dashboard_name = "Activation Key Onboarding"
         self.result = None
 
     async def _wait_for_widget_loading(self, widget):
-        """Wait for widget loading bar to complete and search to finish."""
+        # Wait for widget loading bar to complete and search to finish.
         try:
             # Wait for loading bar to reach 100%
             max_attempts = 30  # 30 seconds max (30 * 1000ms)
             for attempt in range(max_attempts):
                 try:
-                    # Check for loading bar width
                     progress_bar = widget.locator('div[style*="width"]')
                     style = await progress_bar.get_attribute('style')
-                    
                     if style and 'width' in style:
-                        # Extract width percentage
                         import re
                         width_match = re.search(r'width:\s*(\d+(?:\.\d+)?%)', style)
                         if width_match:
@@ -31,7 +27,6 @@ class DashboardType3Automation:
                 except:
                     pass
                 
-                # Check for "Searching" text
                 try:
                     search_text = await widget.inner_text(timeout=1000)
                     if "Searching" in search_text or "searching" in search_text:
@@ -40,8 +35,6 @@ class DashboardType3Automation:
                         continue
                 except:
                     pass
-                
-                # If neither loading bar nor searching found, assume loaded
                 if attempt == 0:
                     await self.page.wait_for_timeout(1000)
                 elif attempt == max_attempts - 1:
@@ -55,22 +48,10 @@ class DashboardType3Automation:
             pass
 
     async def _get_widget_count(self, widget_ids, label, value_selector='[data-e2e="single-value-widget-value"]', wait_for_loading=False):
-        """Generic function to extract count value from widget with single value display.
-        
-        Args:
-            widget_ids: List of widget IDs to try (or single ID as string)
-            label: Label for logging/error messages
-            value_selector: CSS selector for the value element (default is standard Humio)
-            wait_for_loading: If True, wait for widget loading bar to complete
-        
-        Returns:
-            Integer count or 0 if not found
-        """
         try:
             # Handle single ID or list of IDs
             if isinstance(widget_ids, str):
                 widget_ids = [widget_ids]
-            
             widget = None
             for widget_id in widget_ids:
                 try:
@@ -101,21 +82,14 @@ class DashboardType3Automation:
             if not widget:
                 print(f"Could not extract {label}: Widget not found")
                 return 0
-            
-            # Scroll into view
             try:
                 await widget.scroll_into_view_if_needed(timeout=10000)
             except:
                 await self.page.evaluate("window.scrollBy(0, 2000)")
                 await self.page.wait_for_timeout(1000)
-            
             await self.page.wait_for_timeout(500)
-            
-            # Wait for widget loading if requested
             if wait_for_loading:
                 await self._wait_for_widget_loading(widget)
-            
-            # Check for "No results found" message
             try:
                 content_div = widget.locator('div.text-deemphasized.w-full.h-full.flex.items-center.justify-center.border-t.border-normal.shadow-base.shadow-inner-md')
                 content_text = await content_div.inner_text(timeout=2000)
@@ -125,7 +99,6 @@ class DashboardType3Automation:
             except:
                 pass
             
-            # Try to extract the value
             try:
                 value_element = widget.locator(value_selector)
                 count_text = await value_element.inner_text(timeout=3000)
@@ -143,25 +116,11 @@ class DashboardType3Automation:
                 except:
                     print(f"Could not extract {label}: No data found")
                     return 0
-        
         except Exception as e:
             print(f"Could not extract {label}: {e}")
             return 0
 
     async def _extract_widget_errors(self, widget_ids, label, column_selectors, scroll_horizontal=False, deduplicate=False, wait_timeout=3000):
-        """Generic function to extract errors from widget with table or text content.
-        
-        Args:
-            widget_ids: List of widget IDs to try (or single ID as string)
-            label: Label for logging/error messages
-            column_selectors: List of CSS selectors for table columns to extract
-            scroll_horizontal: If True, scroll table horizontally to view all columns
-            deduplicate: If True, remove duplicate errors
-            wait_timeout: Time to wait for widget loading in milliseconds
-        
-        Returns:
-            List of error strings or None if no errors found
-        """
         try:
             # Handle single ID or list of IDs
             if isinstance(widget_ids, str):
@@ -200,14 +159,11 @@ class DashboardType3Automation:
                 print(f"{label}: Widget not found")
                 return None
             
-            # Scroll into view
             try:
                 await widget.scroll_into_view_if_needed(timeout=10000)
             except:
                 await self.page.evaluate("window.scrollBy(0, 2000)")
                 await self.page.wait_for_timeout(1000)
-            
-            # Wait for widget to fully load
             await self.page.wait_for_timeout(wait_timeout)
             
             # Check if widget is still searching and wait if needed
@@ -219,7 +175,6 @@ class DashboardType3Automation:
             except:
                 pass
             
-            # Try to extract from table
             try:
                 table = widget.locator('div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div > table')
                 await table.wait_for(timeout=2000)
@@ -229,8 +184,7 @@ class DashboardType3Automation:
                     column_selectors,
                     scroll_horizontal=scroll_horizontal,
                     deduplicate=deduplicate
-                )
-                
+                )   
                 if error_codes:
                     return error_codes
                 else:
@@ -238,7 +192,6 @@ class DashboardType3Automation:
                     return None
             
             except:
-                # Not a table - try text content div
                 try:
                     content_div = widget.locator('div.text-deemphasized.w-full.h-full.flex.items-center.justify-center.border-t.border-normal.shadow-base.shadow-inner-md')
                     content_text = await content_div.inner_text(timeout=2000)
@@ -259,7 +212,6 @@ class DashboardType3Automation:
     async def _extract_table_with_pagination(self, widget, column_selectors, scroll_horizontal=False, deduplicate=True):
         all_errors = []
         pagination_found = False
-        
         try:
             # Try multiple pagination selector patterns
             pagination_selectors = [
@@ -267,22 +219,16 @@ class DashboardType3Automation:
                 "div.flex.flex-initial.justify-between > humio-resize-observer > ol",
                 "nav ol",
                 "div.widget-box__footer button",
-            ]
-            
+            ]        
             pagination_bar = None
-            pagination_buttons = None
-            
-            print(f"   Looking for pagination bar in widget...")
-            
+            pagination_buttons = None           
+            print(f"   Looking for pagination bar in widget...")            
             for selector in pagination_selectors:
                 try:
                     test_bar = widget.locator(selector)
                     await test_bar.wait_for(state="visible", timeout=2000)
-                    
-                    # Try to find page buttons
                     test_buttons = widget.locator(f"{selector} li > button, {selector} button")
                     button_count = await test_buttons.count()
-                    
                     if button_count > 0:
                         print(f"   Pagination bar found with {button_count} page buttons")
                         pagination_bar = test_bar
@@ -304,8 +250,7 @@ class DashboardType3Automation:
                             await btn.scroll_into_view_if_needed(timeout=2000)
                         except:
                             pass
-                        # Click with retry
-                        for attempt in range(3):
+                        for attempt in range(3):  # Click with retry
                             try:
                                 await btn.click(timeout=3000)
                                 break
@@ -316,8 +261,6 @@ class DashboardType3Automation:
                                 else:
                                     raise
                         await self.page.wait_for_timeout(2500)  # Wait for content to load
-                    
-                        # Scroll horizontally if needed
                         if scroll_horizontal:
                             try:
                                 await widget.evaluate("""
@@ -331,12 +274,9 @@ class DashboardType3Automation:
                                 await self.page.wait_for_timeout(500)
                             except:
                                 pass
-                        
-                        # Extract from current page
                         rows = widget.locator('div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div > table > tbody > tr')
                         row_count = await rows.count()
                         print(f"   Page {page_idx + 1}: Found {row_count} rows")
-                        
                         page_errors = 0
                         for i in range(row_count):
                             try:
@@ -349,7 +289,7 @@ class DashboardType3Automation:
                                             column_texts.append(text.strip())
                                     except:
                                         continue
-                                
+  
                                 if column_texts:
                                     combined = " - ".join(column_texts)
                                     if deduplicate:
@@ -370,13 +310,10 @@ class DashboardType3Automation:
                 print(f"   Total extracted: {len(all_errors)} {label} errors from {button_count} pages")
                 return all_errors if all_errors else None
             else:
-                # No pagination found, extract from single page
                 print(f"   No pagination found, extracting from single page...")
         except Exception as e:
             print(f"   Pagination detection error: {e}")
             print(f"   Falling back to single page extraction...")
-        
-        # Single page extraction (fallback)
         try:
             if scroll_horizontal:
                 try:
@@ -406,7 +343,6 @@ class DashboardType3Automation:
                                 column_texts.append(text.strip())
                         except:
                             continue
-                    
                     if column_texts:
                         combined = " - ".join(column_texts)
                         if deduplicate:

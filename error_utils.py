@@ -1,10 +1,9 @@
-"""Shared error processing utilities for Grafana and Humio automation."""
 import re
 from collections import Counter
 
 
 def _ordinal(n: int) -> str:
-    """Convert integer to ordinal string (e.g., 1 -> '1st', 2 -> '2nd')."""
+    # Convert integer to ordinal string (e.g., 1 -> '1st', 2 -> '2nd').
     if 10 <= n % 100 <= 20:
         suffix = "th"
     else:
@@ -13,8 +12,7 @@ def _ordinal(n: int) -> str:
 
 
 def _extract_main_error(error_text):
-    """Extract only the main error message, removing IDs and identifiers for better grouping."""
-    # Remove leading dashes/brackets and spaces
+    # Extract only the main error message, removing IDs and identifiers for better grouping.
     error_text = re.sub(r'^[\]\-\s]+', '', error_text)
     
     # Remove any existing "occurred X time(s)" patterns
@@ -131,9 +129,8 @@ def _extract_main_error(error_text):
         return error_text[:150].strip() + '...'
     return error_text.strip()
 
-
 def _summarize_errors(errors):
-    """Summarize errors by extracting main message and counting occurrences."""
+    # Summarize errors by extracting main message and counting occurrences.
     extracted_errors = [e for e in (_extract_main_error(error) for error in errors) if e]
     counter = Counter(extracted_errors)
     summarized = []

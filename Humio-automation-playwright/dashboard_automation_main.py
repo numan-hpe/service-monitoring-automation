@@ -26,7 +26,7 @@ DASHBOARD_AUTOMATION = {
 }
 
 async def run_all_environments_comprehensive_report_with_context(shared_context=None, shared_page=None, report_dir="summary reports"):
-    """Run Humio automation using optional shared browser context"""
+    #Run Humio automation using optional shared browser context.
     env_display_names = HUMIO_ENV_DISPLAY_NAMES
     all_results = {}
     

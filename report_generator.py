@@ -1,4 +1,3 @@
-"""Shared report generation utilities for Humio automation."""
 import os
 from datetime import datetime
 from error_utils import _ordinal, _summarize_errors
@@ -6,19 +5,9 @@ from config import HUMIO_DASHBOARD_DISPLAY_NAMES
 
 
 class HumioReportGenerator:
-    """Generates and saves Humio automation reports."""
     
     @staticmethod
     def generate_report(all_results):
-        """
-        Generate report lines from Humio results.
-        
-        Args:
-            all_results: Dictionary with environment results keyed by display name
-            
-        Returns:
-            List of formatted report lines
-        """
         report_lines = []
         now = datetime.now()
         report_lines.append(f"{_ordinal(now.day)} {now.strftime('%B')}")
@@ -29,7 +18,6 @@ class HumioReportGenerator:
                 report_lines.append(f"\n{env_display}")
                 env_data = all_results[env_display]
                 
-                # Handle error status
                 if isinstance(env_data, dict) and env_data.get("status") in ["LOGIN_FAILED", "FAILED"]:
                     report_lines.append(f"✗ {env_data.get('error', 'Failed')}")
                     continue
@@ -41,8 +29,6 @@ class HumioReportGenerator:
                         db_display = dashboard_display_names[db_type]
                         report_lines.append(f"• {db_display}")
                         dashboard_obj = env_data[db_type]
-                        
-                        # Handle different dashboard types
                         if db_type == "dashboard_type_3":
                             HumioReportGenerator._format_dashboard_type_3(
                                 dashboard_obj, report_lines
@@ -54,13 +40,11 @@ class HumioReportGenerator:
                         else:
                             HumioReportGenerator._format_generic_dashboard(
                                 dashboard_obj, report_lines
-                            )
-        
+                            )  
         return report_lines
     
     @staticmethod
     def _format_dashboard_type_3(dashboard_obj, report_lines):
-        """Format dashboard_type_3 (Activation Keys) report."""
         if hasattr(dashboard_obj, "errors_dict") and dashboard_obj.errors_dict:
             errors_dict = dashboard_obj.errors_dict
             error_count = 0
@@ -116,7 +100,6 @@ class HumioReportGenerator:
     
     @staticmethod
     def _format_dashboard_type_4(dashboard_obj, report_lines):
-        """Format dashboard_type_4 (Service-Errors) report."""
         if hasattr(dashboard_obj, "widgets") and dashboard_obj.widgets:
             for widget_data in dashboard_obj.widgets:
                 widget_name = widget_data.get("name", "Unknown Widget")
@@ -134,7 +117,6 @@ class HumioReportGenerator:
     
     @staticmethod
     def _format_generic_dashboard(dashboard_obj, report_lines):
-        """Format generic dashboard (type 1, 2) report."""
         if hasattr(dashboard_obj, "result"):
             result = dashboard_obj.result
             if "No errors" in result:
@@ -154,17 +136,6 @@ class HumioReportGenerator:
     
     @staticmethod
     def save_report(report_lines, report_dir="reports", print_output=True):
-        """
-        Save report lines to file.
-        
-        Args:
-            report_lines: List of report lines to save
-            report_dir: Directory to save report in
-            print_output: Whether to print report to console
-            
-        Returns:
-            Path to saved report file
-        """
         if not os.path.exists(report_dir):
             os.makedirs(report_dir)
         
