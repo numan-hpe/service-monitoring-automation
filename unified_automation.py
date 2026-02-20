@@ -351,29 +351,37 @@ class UnifiedAutomation:
                                 errors_dict = dashboard_obj.errors_dict
                                 error_count = 0
 
-                                if "oae" in errors_dict and isinstance(errors_dict["oae"], list) and errors_dict["oae"]:
+                                # Error Details During iLO Onboard Activation Job
+                                if "oae" in errors_dict:
                                     report_lines.append("  o Error Details During iLO Onboard Activation Job")
-                                    for error_item in _summarize_errors(errors_dict["oae"]):
-                                        report_lines.append(f"    ▪ {error_item}")
-                                        error_count += 1
+                                    if isinstance(errors_dict["oae"], list) and errors_dict["oae"]:
+                                        for error_item in _summarize_errors(errors_dict["oae"]):
+                                            report_lines.append(f"    ▪ {error_item}")
+                                            error_count += 1
+                                    # Note: if oae exists but is empty, heading is shown but no errors listed
 
+                                # Subscription key assignment failure details
                                 if "table" in errors_dict and isinstance(errors_dict["table"], list) and errors_dict["table"]:
                                     report_lines.append("  o Subscription key assignment failure details")
                                     for error_item in _summarize_errors(errors_dict["table"]):
                                         report_lines.append(f"    ▪ {error_item}")
                                         error_count += 1
 
+                                # PIN Generation Failure
                                 if "pin" in errors_dict and isinstance(errors_dict["pin"], list) and errors_dict["pin"]:
                                     report_lines.append("  o PIN Generation Failure")
                                     for error_item in _summarize_errors(errors_dict["pin"]):
                                         report_lines.append(f"    ▪ {error_item}")
                                         error_count += 1
 
-                                if "compute" in errors_dict and isinstance(errors_dict["compute"], list) and errors_dict["compute"]:
+                                # Compute Provision Failure Details
+                                if "compute" in errors_dict:
                                     report_lines.append("  o Compute Provision Failure Details")
-                                    for error_item in _summarize_errors(errors_dict["compute"]):
-                                        report_lines.append(f"    ▪ {error_item}")
-                                        error_count += 1
+                                    if isinstance(errors_dict["compute"], list) and errors_dict["compute"]:
+                                        for error_item in _summarize_errors(errors_dict["compute"]):
+                                            report_lines.append(f"    ▪ {error_item}")
+                                            error_count += 1
+                                    # Note: if compute exists but is empty, heading is shown but no errors listed
 
                                 if "jwt" in errors_dict:
                                     report_lines.append(f"  o JWT generation failed - {errors_dict['jwt']}")

@@ -8,6 +8,52 @@ class DashboardType3Automation:
         self.dashboard_name = "Activation Key Onboarding"
         self.result = None
 
+    async def _wait_for_widget_loading(self, widget):
+        """Wait for widget loading bar to complete and search to finish."""
+        try:
+            # Wait for loading bar to reach 100%
+            max_attempts = 30  # 30 seconds max (30 * 1000ms)
+            for attempt in range(max_attempts):
+                try:
+                    # Check for loading bar width
+                    progress_bar = widget.locator('div[style*="width"]')
+                    style = await progress_bar.get_attribute('style')
+                    
+                    if style and 'width' in style:
+                        # Extract width percentage
+                        import re
+                        width_match = re.search(r'width:\s*(\d+(?:\.\d+)?%)', style)
+                        if width_match:
+                            width = float(width_match.group(1).rstrip('%'))
+                            if width >= 100:
+                                print(f"   Loading bar complete (100%)")
+                                break
+                except:
+                    pass
+                
+                # Check for "Searching" text
+                try:
+                    search_text = await widget.inner_text(timeout=1000)
+                    if "Searching" in search_text or "searching" in search_text:
+                        print(f"   Widget still searching, waiting...")
+                        await self.page.wait_for_timeout(1000)
+                        continue
+                except:
+                    pass
+                
+                # If neither loading bar nor searching found, assume loaded
+                if attempt == 0:
+                    await self.page.wait_for_timeout(1000)
+                elif attempt == max_attempts - 1:
+                    print(f"   Widget loading timeout, proceeding anyway")
+                    break
+                else:
+                    await self.page.wait_for_timeout(1000)
+                    
+        except Exception as e:
+            print(f"   Widget load wait error (non-critical): {e}")
+            pass
+
     async def _extract_table_with_pagination(self, widget, column_selectors, scroll_horizontal=False, deduplicate=True):
         all_errors = []
         pagination_found = False
@@ -230,6 +276,10 @@ class DashboardType3Automation:
             widget = self.page.locator("#widget_box__a7a91c34-a179-43d1-8017-11ab0b5e62d2")
             await widget.scroll_into_view_if_needed()
             await self.page.wait_for_timeout(500)
+            
+            # Wait for widget to fully load
+            await self._wait_for_widget_loading(widget)
+            
             value_element = widget.locator('[data-e2e="single-value-widget-value"]')
             count_text = await value_element.inner_text(timeout=5000)
             count = int(count_text.strip())
@@ -268,6 +318,10 @@ class DashboardType3Automation:
                 await self.page.evaluate("window.scrollBy(0, 2000)")
                 await self.page.wait_for_timeout(1000)
             await self.page.wait_for_timeout(500)
+            
+            # Wait for widget to fully load
+            await self._wait_for_widget_loading(widget)
+            
             try:
                 content_div = widget.locator('div.text-deemphasized.w-full.h-full.flex.items-center.justify-center.border-t.border-normal.shadow-base.shadow-inner-md')
                 content_text = await content_div.inner_text(timeout=2000)
@@ -321,8 +375,10 @@ class DashboardType3Automation:
         try:
             # Try multiple widget IDs (different between environments)
             widget_ids = [
-                "#widget_box__fe7e56ad-8d35-45fa-a535-80bb1ce67ab7",  # env1
-                "#widget_box__77afab0c-0551-4d44-97e9-47a171a3df60"   # env2
+                "#widget_box__fe7e56ad-8d35-45fa-a535-80bb1ce67ab7",  # env1/PRE-PROD
+                "#widget_box__77afab0c-0551-4d44-97e9-47a171a3df60",  # env2/ANE1
+                "#widget_box__2a97c8f1-8f3b-4b8e-8f9a-8f3b4b8e8f9a",  # env3/EUC1 (placeholder)
+                "#widget_box__3b97c8f1-8f3b-4b8e-8f9a-8f3b4b8e8f9b"   # env4/USW2 (placeholder)
             ]
             
             widget = None
@@ -334,6 +390,26 @@ class DashboardType3Automation:
                     break
                 except:
                     continue
+            
+            # If hardcoded IDs don't work, try finding by widget title/content
+            if not widget:
+                print(f"Hardcoded widget IDs not found, searching by content...")
+                try:
+                    # Look for widget containing the title "Error Details During iLO Onboard Activation Job"
+                    all_widgets = self.page.locator('div[id^="widget_box__"]')
+                    widget_count = await all_widgets.count()
+                    for i in range(widget_count):
+                        w = all_widgets.nth(i)
+                        try:
+                            title_text = await w.locator('.widget-box__header').inner_text(timeout=1000)
+                            if "Error Details During iLO Onboard Activation Job" in title_text or "Onboard Activation" in title_text:
+                                widget = w
+                                print(f"Found widget by content search")
+                                break
+                        except:
+                            continue
+                except:
+                    pass
             
             if not widget:
                 print(f"Error Details During iLO Onboard Activation Job widget not found")
@@ -559,7 +635,44 @@ class DashboardType3Automation:
     async def get_compute_provision_failure_details(self):
         #Extract Compute Provision Failure error codes.
         try:
-            widget = self.page.locator("#widget_box__99bc4e96-1f7b-4d1f-a326-c46ee1ab0623")         
+            # Try multiple widget IDs (different between environments)
+            widget_ids = [
+                "#widget_box__99bc4e96-1f7b-4d1f-a326-c46ee1ab0623",  # env1/PRE-PROD
+                "#widget_box__88bc4e96-1f7b-4d1f-a326-c46ee1ab0624",  # env2/ANE1 (placeholder)
+                "#widget_box__77bc4e96-1f7b-4d1f-a326-c46ee1ab0625",  # env3/EUC1 (placeholder)
+                "#widget_box__66bc4e96-1f7b-4d1f-a326-c46ee1ab0626"   # env4/USW2 (placeholder)
+            ]
+            
+            widget = None
+            for widget_id in widget_ids:
+                try:
+                    temp_widget = self.page.locator(widget_id)
+                    await temp_widget.wait_for(timeout=2000)
+                    widget = temp_widget
+                    break
+                except:
+                    continue
+            
+            # If hardcoded IDs don't work, try finding by widget title/content
+            if not widget:
+                print(f"Hardcoded widget IDs not found, searching by content...")
+                try:
+                    # Look for widget containing the title "Compute Provision Failure Details"
+                    all_widgets = self.page.locator('div[id^="widget_box__"]')
+                    widget_count = await all_widgets.count()
+                    for i in range(widget_count):
+                        w = all_widgets.nth(i)
+                        try:
+                            title_text = await w.locator('.widget-box__header').inner_text(timeout=1000)
+                            if "Compute Provision Failure" in title_text or "Compute Provision" in title_text:
+                                widget = w
+                                print(f"Found widget by content search")
+                                break
+                        except:
+                            continue
+                except:
+                    pass
+                         
             try:
                 await widget.scroll_into_view_if_needed(timeout=10000)
             except:
