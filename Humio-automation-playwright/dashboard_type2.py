@@ -7,22 +7,7 @@ class DashboardType2Automation:
         self.page = page
         self.dashboard_name = "COM Subscription and Consumption"
         self.result = None
-    
-    async def verify_dashboard(self):
-        #Verify we are on the correct Type 2 dashboard by checking URL.
-        try:
-            await self.page.wait_for_load_state("domcontentloaded")
-            current_url = self.page.url            
-            if "COM%20Subscription%20and%20Consumption" in current_url:
-                print(f"Type 2 Dashboard Detected")
-                return True
-            else:
-                print(f"Dashboard mismatch. Expected 'COM%20Subscription%20and%20Consumption' in URL")
-                return False
-        except Exception as e:
-            print(f"Could not verify dashboard: {e}")
-            return False
-    
+
     async def get_service_instance_errors(self):
         #Extract the 'Service instance ERROR (CDS)' count from the dashboard.
         try:
@@ -189,12 +174,6 @@ class DashboardType2Automation:
             await self.page.wait_for_load_state("networkidle", timeout=10000)
         except:
             await self.page.wait_for_timeout(1000)
-        is_correct_dashboard = await self.verify_dashboard()
-        if not is_correct_dashboard:
-            self.result = f"{self.dashboard_name} - Dashboard verification failed"
-            print(self.result)
-            return self.result
-        
         await self.generate_summary()
         print(self.result)
         return self.result

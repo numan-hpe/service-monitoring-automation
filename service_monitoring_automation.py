@@ -56,14 +56,30 @@ async def run_unified_automation(mode="all"):
             # Don't call setup_browser() for humio only mode
             # Let the humio automation create its own browser and handle login
             success = await automation.run_all_humio_environments()
-            report_path = automation.generate_humio_report()
-            print("\n" + "="*70)
+            
             if success:
+                # Generate report from Humio results
+                from report_generator import HumioReportGenerator
+                from datetime import date
+                import os
+                
+                report_lines = HumioReportGenerator.generate_report(automation.humio_results)
+                today_date = date.today().strftime("%Y-%m-%d")
+                report_dir = os.path.join("reports", today_date)
+                os.makedirs(report_dir, exist_ok=True)
+                
+                filepath = HumioReportGenerator.save_report(report_lines, report_dir, print_output=True)
+                
+                print("\n" + "="*70)
                 print("HUMIO AUTOMATION COMPLETED SUCCESSFULLY")
-                print(f"Report saved to: {report_path}")
+                if filepath:
+                    print(f"Report saved to: {filepath}")
+                print("="*70 + "\n")
             else:
+                print("\n" + "="*70)
                 print("HUMIO AUTOMATION FAILED")
-            print("="*70 + "\n")
+                print("="*70 + "\n")
+                success = False
         except Exception as e:
             print(f"Error: {e}")
             success = False

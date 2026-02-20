@@ -29,6 +29,8 @@ from config import (
     HUMIO_DASHBOARD_DISPLAY_NAMES,
     USER_EMAIL,
 )
+from error_utils import _ordinal, _extract_main_error, _summarize_errors
+from report_generator import HumioReportGenerator
 
 # Grafana imports
 from pdf_generator import generate_pdf
@@ -209,7 +211,7 @@ class UnifiedAutomation:
             # If running standalone (no shared context), we need to handle login
             if not hasattr(self, 'context') or self.context is None or not hasattr(self, 'page') or self.page is None:
                 logger.info("No shared browser context - Humio automation will handle login")
-                self.humio_results = await run_all_environments_comprehensive_report_with_context(
+                all_results, report_lines = await run_all_environments_comprehensive_report_with_context(
                     shared_context=None,
                     shared_page=None,
                     report_dir=report_dir
@@ -217,11 +219,15 @@ class UnifiedAutomation:
             else:
                 logger.info("Using shared browser context from Grafana")
                 # Run the new Playwright-based Humio automation with shared browser context
-                self.humio_results = await run_all_environments_comprehensive_report_with_context(
+                all_results, report_lines = await run_all_environments_comprehensive_report_with_context(
                     shared_context=self.context,
                     shared_page=self.page,
                     report_dir=report_dir
                 )
+            
+            # Store results and report lines
+            self.humio_results = all_results
+            self.humio_report_lines = report_lines
             
             if self.humio_results:
                 logger.info("\n" + "="*70)
@@ -237,237 +243,26 @@ class UnifiedAutomation:
             return False
     
     def generate_humio_report(self):
-        """Generate Humio report with the exact original structure."""
-        from datetime import datetime
-        from collections import Counter
-
-        def _ordinal(n: int) -> str:
-            if 10 <= n % 100 <= 20:
-                suffix = "th"
-            else:
-                suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-            return f"{n}{suffix}"
-
-        def _extract_main_error(error_text):
-            import re
-            error_text = re.sub(r'^[\]\-\s]+', '', error_text)
-            
-            # Remove any existing "occurred X time(s)" patterns from the error text
-            error_text = re.sub(r'\s*-\s*occurred\s+\d+\s+times?\s*', ' ', error_text, flags=re.IGNORECASE)
-            
-            error_text = re.sub(r'^(?:[a-f0-9]{16,}\s+){1,3}', '', error_text)
-            error_text = re.sub(r'^[a-f0-9-]{30,}\s+', '', error_text)
-            error_text = re.sub(r'^[\w.]+:\d+\s+', '', error_text)
-            
-            # Special handling for "Compute provision data fetch failed" - strip device ID and error code
-            if 'Compute provision data fetch failed' in error_text:
-                return 'Compute provision data fetch failed for device'
-            
-            # Special handling for "Failed fetch messages from X:" - strip the number and connection details
-            if 'Failed fetch messages from' in error_text:
-                # Strip node number and connection details, keep just the error type
-                error_text = re.sub(r'from\s+\d+:.*?(?=\s|$)', 'from:', error_text)
-                error_text = re.sub(r':\s*Connection at.*', '', error_text)
-                return error_text.strip()
-
-            module_prefix = re.match(r'^([A-Za-z0-9_.]+):\s+', error_text)
-            if module_prefix and '.' in module_prefix.group(1):
-                error_text = error_text[module_prefix.end():]
-            if re.match(r'^[A-Za-z0-9_.]+$', error_text) and '.' in error_text:
-                return ""
-            if error_text.lower().startswith('template server:'):
-                return error_text.split(':', 1)[1].strip()
-            if 'Unhandled exception checking is_ready for module' in error_text:
-                return error_text.strip()
-            match = re.search(r'(Failed fetch messages from \d+: \w+(?:Error)?)', error_text)
-            if match:
-                return match.group(1)
-            if 'Exception while unregistering device' in error_text:
-                return 'Exception while unregistering device'
-            if 'Malformed gateway command received' in error_text:
-                return 'Malformed gateway command received'
-
-            match = re.match(r'^([^\[{]+?)(?:\s*[\[{]|\s{3,})', error_text)
-            if match:
-                main_part = match.group(1).strip()
-                main_part = re.sub(r':\s*Connection at.*$', '', main_part)
-                main_part = re.sub(r':\s*[a-z0-9.-]+:\d+.*$', '', main_part, flags=re.IGNORECASE)
-                main_part = re.sub(r'\s+P[0-9A-Z-+]+.*$', '', main_part)
-                return main_part.strip()
-
-            parts = error_text.split(':')
-            if len(parts) >= 2:
-                if len(parts) >= 3:
-                    second_part = parts[1].strip()
-                    if (second_part.endswith(('Error', 'Exception')) or
-                        (second_part and second_part[0].isupper() and 'Error' in second_part)):
-                        return f"{parts[0].strip()}: {parts[1].strip()}: {parts[2].strip()}"
-                if len(parts) == 2:
-                    first_part = parts[0].strip()
-                    second_part = parts[1].strip()
-                    if len(first_part) < 50 and len(second_part) < 100 and len(second_part) > 5:
-                        if not re.search(r'[a-z0-9.-]+:\d+', second_part, re.IGNORECASE):
-                            return f"{first_part}: {second_part}"
-
-                if len(parts[0].strip()) < 20 and len(parts) > 2:
-                    return f"{parts[0].strip()}: {parts[1].strip()}"
-                return parts[0].strip()
-
-            if len(error_text) > 150:
-                return error_text[:150].strip() + '...'
-            return error_text.strip()
-
-        def _summarize_errors(errors):
-            extracted_errors = [e for e in (_extract_main_error(error) for error in errors) if e]
-            counter = Counter(extracted_errors)
-            summarized = []
-            for text, count in counter.items():
-                if count > 1:
-                    summarized.append(f"{text} - occurred {count} times")
-                else:
-                    summarized.append(text)  # Just show error without "occurred 1 time"
-            return summarized
-
-        report_lines = []
-        now = datetime.now()
-        report_lines.append(f"{_ordinal(now.day)} {now.strftime('%B')}")
-
-        dashboard_display_names = HUMIO_DASHBOARD_DISPLAY_NAMES
-        for env_display in ["PRE-PROD", "ANE1", "EUC1", "USW2"]:
-            if env_display in self.humio_results:
-                report_lines.append(f"\n{env_display}")
-                env_data = self.humio_results[env_display]
-                if isinstance(env_data, dict) and env_data.get("status") in ["LOGIN_FAILED", "FAILED"]:
-                    report_lines.append(f"✗ {env_data.get('error', 'Failed')}")
-                    continue
-                dashboard_order = ["dashboard_type_2", "dashboard_type_1", "dashboard_type_3", "dashboard_type_4"]
-                for db_type in dashboard_order:
-                    if db_type in env_data:
-                        db_display = dashboard_display_names[db_type]
-                        report_lines.append(f"• {db_display}")
-                        dashboard_obj = env_data[db_type]
-                        if db_type == "dashboard_type_3":
-                            if hasattr(dashboard_obj, "errors_dict") and dashboard_obj.errors_dict:
-                                errors_dict = dashboard_obj.errors_dict
-                                error_count = 0
-
-                                # Error Details During iLO Onboard Activation Job
-                                if "oae" in errors_dict:
-                                    report_lines.append("  o Error Details During iLO Onboard Activation Job")
-                                    if isinstance(errors_dict["oae"], list) and errors_dict["oae"]:
-                                        for error_item in _summarize_errors(errors_dict["oae"]):
-                                            report_lines.append(f"    ▪ {error_item}")
-                                            error_count += 1
-                                    # Note: if oae exists but is empty, heading is shown but no errors listed
-
-                                # Subscription key assignment failure details
-                                if "table" in errors_dict and isinstance(errors_dict["table"], list) and errors_dict["table"]:
-                                    report_lines.append("  o Subscription key assignment failure details")
-                                    for error_item in _summarize_errors(errors_dict["table"]):
-                                        report_lines.append(f"    ▪ {error_item}")
-                                        error_count += 1
-
-                                # PIN Generation Failure
-                                if "pin" in errors_dict and isinstance(errors_dict["pin"], list) and errors_dict["pin"]:
-                                    report_lines.append("  o PIN Generation Failure")
-                                    for error_item in _summarize_errors(errors_dict["pin"]):
-                                        report_lines.append(f"    ▪ {error_item}")
-                                        error_count += 1
-
-                                # Compute Provision Failure Details
-                                if "compute" in errors_dict:
-                                    report_lines.append("  o Compute Provision Failure Details")
-                                    if isinstance(errors_dict["compute"], list) and errors_dict["compute"]:
-                                        for error_item in _summarize_errors(errors_dict["compute"]):
-                                            report_lines.append(f"    ▪ {error_item}")
-                                            error_count += 1
-                                    # Note: if compute exists but is empty, heading is shown but no errors listed
-
-                                if "jwt" in errors_dict:
-                                    report_lines.append(f"  o JWT generation failed - {errors_dict['jwt']}")
-                                    error_count += 1
-                                if "subscription" in errors_dict:
-                                    report_lines.append(f"  o Subscription Key Claim Failure - {errors_dict['subscription']}")
-                                    error_count += 1
-                                if "device" in errors_dict:
-                                    report_lines.append(f"  o Device not available GLP Pool - {errors_dict['device']}")
-                                    error_count += 1
-                                if "location" in errors_dict:
-                                    report_lines.append(f"  o Location/Tags/Sdc Patch Failure - {errors_dict['location']}")
-                                    error_count += 1
-                                if error_count == 0:
-                                    report_lines.append("  o No errors")
-                            else:
-                                report_lines.append("  o No errors")
-
-                        elif db_type == "dashboard_type_4":
-                            if hasattr(dashboard_obj, "widgets") and dashboard_obj.widgets:
-                                for widget_data in dashboard_obj.widgets:
-                                    widget_name = widget_data.get("name", "Unknown Widget")
-                                    widget_errors = widget_data.get("errors", [])
-                                    if widget_errors and isinstance(widget_errors, list):
-                                        # Special handling for PII Detection Count
-                                        if widget_name == "PII Detection Count":
-                                            # Check if the only error is "0"
-                                            summarized = _summarize_errors(widget_errors)
-                                            if len(summarized) == 1 and summarized[0].strip() in ["0", "PII Detection Count - 0"]:
-                                                report_lines.append(f"  o {widget_name} - No errors")
-                                            else:
-                                                report_lines.append(f"  o {widget_name}")
-                                                for error in summarized:
-                                                    if error.startswith("PII Detection Count - "):
-                                                        error = error.replace("PII Detection Count - ", "", 1)
-                                                    report_lines.append(f"    ▪ {error}")
-                                        else:
-                                            report_lines.append(f"  o {widget_name}")
-                                            for error in _summarize_errors(widget_errors):
-                                                report_lines.append(f"    ▪ {error}")
-                                    else:
-                                        report_lines.append(f"  o {widget_name} - No errors")
-                            else:
-                                report_lines.append("  o No widget data available")
-
-                        else:
-                            if hasattr(dashboard_obj, "result"):
-                                result = dashboard_obj.result
-                                if "No errors" in result:
-                                    report_lines.append("  o No errors")
-                                elif " - " in result:
-                                    parts = result.split(" - ", 1)
-                                    if len(parts) > 1:
-                                        errors = parts[1].split(" | ")
-                                        for error in errors:
-                                            error_clean = error.strip()
-                                            if error_clean:
-                                                report_lines.append(f"  o {error_clean}")
-                                else:
-                                    report_lines.append("  o No data")
-                            else:
-                                report_lines.append("  o No data")
-
-        # Use the same date-based folder as Grafana report
-        today_date_folder = datetime.now().strftime("%Y-%m-%d")
+        """Generate Humio report once from collected results."""
+        if not hasattr(self, 'humio_report_lines'):
+            logger.error("No Humio report lines available")
+            return None
+        
+        # Determine report directory
+        today_date_folder = date.today().strftime("%Y-%m-%d")
         folder_name = os.path.join("reports", today_date_folder)
         if not os.path.exists(folder_name):
             os.makedirs(folder_name)
-
-        today_date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        filename = f"{today_date}_humio_service_monitoring.txt"
-        filepath = os.path.join(folder_name, filename)
-
-        with open(filepath, "w", encoding="utf-8") as f:
-            for line in report_lines:
-                f.write(line + "\n")
-
-        # Print report to terminal
-        logger.info("\n" + "="*70)
-        logger.info("HUMIO SERVICE MONITORING REPORT")
-        logger.info("="*70)
-        for line in report_lines:
-            logger.info(line)
-        logger.info("="*70)
-        logger.info(f"Report saved to: {filepath}")
-        logger.info("="*70 + "\n")
+        
+        # Save report
+        filepath = HumioReportGenerator.save_report(
+            self.humio_report_lines, 
+            folder_name, 
+            print_output=True
+        )
+        
+        if filepath:
+            logger.info(f"Report saved to: {filepath}")
         
         return filepath
     
