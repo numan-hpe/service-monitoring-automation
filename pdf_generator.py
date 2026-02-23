@@ -111,11 +111,6 @@ def display_images_and_table(region, table, elements):
 
 
 def generate_pdf(output_dir, output_file="service_monitoring.pdf"):
-    """
-    Generates a PDF report for the Grafana dashboard data.
-    :param output_dir: Directory containing region subdirectories with JSON files.
-    :param output_file: Name of the generated PDF file.
-    """
     pdf_filename = os.path.join(output_dir, output_file)
     margin = 0.25 * inch
     doc = SimpleDocTemplate(

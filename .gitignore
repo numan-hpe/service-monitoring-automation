@@ -1,7 +1,43 @@
-__pycache__
+# Python cache (centralized to root .pycache, also ignore subfolder caches)
+.pycache/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Project specific
+# Data folders (old structure)
+ccprodane1/
+ccprodeuc1/
+ccprodusw2/
+pre-prod/
+
+# Report and output folders
+reports/
+summary reports/
+
+# Temporary files
+*.json
+*.log
 humio.json
-ccprodane1
-ccprodeuc1
-ccprodusw2
-pre-prod
-reports
+session_cookies.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.docx
+~$*
+.git/

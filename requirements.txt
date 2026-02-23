@@ -1,2 +1,4 @@
-reportlab==4.2.5
-selenium==4.27.1
+playwright==1.49.0          # Browser automation (async/sync APIs)
+reportlab==4.2.5            # PDF report generation
+Pillow>=10.0.0              # Image processing for screenshots
+python-dotenv>=1.0.0        # Environment variable management
