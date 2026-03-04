@@ -67,9 +67,9 @@ async def run_all_environments_comprehensive_report_with_context(shared_context=
                         }.get(dashboard_type, dashboard_type)
                         try:
                             if not (env_key == "env1" and idx == 0):
-                                await page.goto(dashboard_url, wait_until="networkidle")
-                                await page.wait_for_load_state("networkidle")
-                                await page.wait_for_timeout(2000)
+                                await page.goto(dashboard_url, wait_until="domcontentloaded", timeout=60000)
+                                await page.wait_for_load_state("domcontentloaded")
+                                await page.wait_for_timeout(3000)
                             
                             automation_class = DASHBOARD_AUTOMATION[dashboard_type]
                             if dashboard_type == "dashboard_type_4":
@@ -101,9 +101,9 @@ async def run_all_environments_comprehensive_report_with_context(shared_context=
     return all_results, report_lines
 
 async def main():
-    await run_all_environments_comprehensive_report_with_context()
+    # await run_all_environments_comprehensive_report_with_context()
     # await run_all_dashboards_in_environment(environment="env1")
-    # await run_single_dashboard(environment="env4", dashboard_type="dashboard_type_4")
+    await run_single_dashboard(environment="env3", dashboard_type="dashboard_type_3")
 
 if __name__ == "__main__":
     asyncio.run(main())

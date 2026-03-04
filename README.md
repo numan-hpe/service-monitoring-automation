@@ -2,7 +2,7 @@
 
 Automates Grafana and Humio dashboard monitoring and report generation.
 
-## Quick Start
+## Start
 
 1. Install:
 	```bash
@@ -50,5 +50,5 @@ HUMIO_TO = "now"
 **Common time range options:**
 - `now-1h` = Last 1 hour
 - `now-24h` or `now-1d` = Last 24 hours (today)
-- From = `now-48h`or`now-2d` or To = `now-24h`or``now-1d` 
+- From = `now-48h`or`now-2d` or To = `now-24h`or`now-1d` 
 - `now-7d` = Last 7 days (last week)

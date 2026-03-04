@@ -174,6 +174,24 @@ class DashboardType3Automation:
             print(f"   Error during single page extraction: {e}")
         return all_errors if all_errors else None
     
+    async def verify_dashboard(self):
+        #Verify we are on the correct Type 3 dashboard by checking URL.
+        try:
+            await self.page.wait_for_load_state("domcontentloaded")
+            await self.page.wait_for_timeout(1000)
+            current_url = self.page.url
+            print(f"Current URL: {current_url}")
+            if "Activation%20Key%20Onboarding" in current_url:
+                print(f"Type 3 Dashboard Detected")
+                return True
+            else:
+                print(f"Dashboard mismatch. Expected 'Activation%20Key%20Onboarding' in URL")
+                return False
+                
+        except Exception as e:
+            print(f"   Could not verify dashboard: {e}")
+            return False
+    
     async def get_jwt_generation_failed(self):
         #Extract the 'JWT generation failed' count from the dashboard.
         try:
@@ -282,65 +300,20 @@ class DashboardType3Automation:
     async def get_sdc_patch_failure_errors(self):
         #Extract error details if Location/Tags/Sdc Patch Failure Count > 0.
         try:
-            widget = self.page.locator("#widget_box__9ca37872-2576-4389-b9ec-e611738b8b2a")
+            widget = self.page.locator("#widget_box__72e5beef-64dc-4be4-becd-9970e2a6c87f")
             await widget.scroll_into_view_if_needed()
-            await self.page.wait_for_timeout(3000)
-            
-            # Check if there's a "No results" message
-            try:
-                content_div = widget.locator('div.text-deemphasized.w-full.h-full.flex.items-center.justify-center.border-t.border-normal.shadow-base.shadow-inner-md')
-                content_text = await content_div.inner_text(timeout=2000)
-                if "Search completed. No results found" in content_text:
-                    print(f"Location/Tags/Sdc Patch Failure: No results found")
-                    return None
-            except:
-                pass
-            
-            # Check number of pages before extracting
-            try:
-                pagination_ol = widget.locator("div.flex.flex-initial.justify-between.py-0\\.5.px-6.overflow-auto > humio-resize-observer > ol")
-                await pagination_ol.wait_for(state="visible", timeout=2000)
-                
-                # Count page buttons
-                page_buttons = widget.locator("div.flex.flex-initial.justify-between.py-0\\.5.px-6.overflow-auto > humio-resize-observer > ol > li > button")
-                num_pages = await page_buttons.count()
-                
-                print(f"   Found {num_pages} pages in Location/Tags/Sdc Patch Failure table")
-                
-                # If more than 10 pages, get total count and return summary instead
-                if num_pages > 10:
-                    try:
-                        # Get total count from the count widget
-                        count_widget = self.page.locator("#widget_box__54fb95ac-34ec-4575-bcf9-9ec0f27f06b5")
-                        count_element = count_widget.locator("div.widget-box__content.z-40 > div > div.w-full.h-full > div > div > div")
-                        total_count = await count_element.inner_text(timeout=3000)
-                        total_count = int(total_count.strip())
-                        print(f"   Too many pages ({num_pages}), using summary. Total errors: {total_count}")
-                        return [f"Multiple occurrences ({total_count} total errors across {num_pages} pages)"]
-                    except:
-                        print(f"   Too many pages ({num_pages}), using summary")
-                        return [f"Multiple occurrences (across {num_pages} pages)"]
-            except:
-                print(f"   No pagination found or single page")
-            
-            # Use pagination helper to extract from all pages (column 5)
-            error_codes = await self._extract_table_with_pagination(
-                widget,
-                ['td:nth-child(5) > div'],
-                scroll_horizontal=False,
-                deduplicate=True
-            )
-            
-            if error_codes:
-                preview = ", ".join(error_codes[:5])
-                print(f"Found Location/Tags/Sdc Patch Failure Details: {preview}...")
-                return error_codes
-            else:
-                print(f"   Location/Tags/Sdc Patch Failure: No error details found")
+            await self.page.wait_for_timeout(500)
+            content_div = widget.locator('div.text-deemphasized.w-full.h-full.flex.items-center.justify-center.border-t.border-normal.shadow-base.shadow-inner-md')
+            content_text = await content_div.inner_text(timeout=5000)
+            if "Search completed. No results found" in content_text:
+                print(f"SDC Patch Failure: No results found")
                 return None
+            else:
+                print(f"Found SDC Patch Failure errors: {content_text[:100]}...")
+                return content_text
                 
         except Exception as e:
-            print(f"Could not extract Location/Tags/Sdc Patch Failure Details: {e}")
+            print(f"Could not extract SDC Patch Failure errors: {e}")
             return None
     
     async def get_oae_errors(self):
@@ -736,6 +709,11 @@ class DashboardType3Automation:
             await self.page.wait_for_load_state("networkidle", timeout=10000)
         except:
             await self.page.wait_for_timeout(1000)
+        is_correct_dashboard = await self.verify_dashboard()
+        if not is_correct_dashboard:
+            self.result = f"   ✗ {self.dashboard_name} - Dashboard verification failed"
+            print(self.result)
+            return self.result
         await self.generate_summary()
         print(self.result)
         return self.result

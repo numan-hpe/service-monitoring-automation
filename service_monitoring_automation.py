@@ -3,6 +3,9 @@ import sys
 import argparse
 import os
 
+from report_generator import HumioReportGenerator
+from datetime import date
+
 # UTF-8 encoding for proper Unicode character display on Windows
 if sys.platform.startswith('win'):
     os.environ['PYTHONIOENCODING'] = 'utf-8'
@@ -15,12 +18,6 @@ os.environ['PYTHONPYCACHEPREFIX'] = os.path.join(project_root, '.pycache')
 
 
 async def run_unified_automation(mode="all"):
-    """
-    Run automation based on mode:
-    - "all" (default): Run both Grafana and Humio
-    - "graphana": Run only Grafana
-    - "humio": Run only Humio
-    """
     from unified_automation import UnifiedAutomation
     
     if mode == "all":
@@ -53,15 +50,8 @@ async def run_unified_automation(mode="all"):
         print("\n=== Starting Humio Automation Only ===")
         automation = UnifiedAutomation()
         try:
-            # Don't call setup_browser() for humio only mode
-            # Let the humio automation create its own browser and handle login
             success = await automation.run_all_humio_environments()   
             if success:
-                # Generate report from Humio results
-                from report_generator import HumioReportGenerator
-                from datetime import date
-                import os
-                
                 report_lines = HumioReportGenerator.generate_report(automation.humio_results)
                 today_date = date.today().strftime("%Y-%m-%d")
                 report_dir = os.path.join("reports", today_date)
@@ -90,7 +80,6 @@ async def run_unified_automation(mode="all"):
         success = False
     
     return success
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -131,7 +120,6 @@ Examples:
     # Run automation
     success = asyncio.run(run_unified_automation(mode))
     exit(0 if success else 1)
-
 
 if __name__ == "__main__":
     main()
