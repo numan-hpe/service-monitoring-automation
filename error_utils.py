@@ -97,6 +97,10 @@ def _extract_main_error(error_text):
     if 'Create activation key failed' in error_text:
         return 'Create activation key failed for pcid'
     
+    # Handle ConsumerRecord exceptions from power data processing
+    if 'Exception while processing power data msg: ConsumerRecord' in error_text:
+        return 'Exception while processing power data msg: ConsumerRecord'
+    
     # Extract first sentence or phrase before detailed JSON/dict data
     match = re.match(r'^([^{\[]+?)(?:\s*[{\[]|\s{3,})', error_text)
     if match:
