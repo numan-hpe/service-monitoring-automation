@@ -1,4 +1,4 @@
-USER_EMAIL = "deeksha.jayanth@hpe.com"
+USER_EMAIL = "your_email@hpe.com"
 BOT_TOKEN = "Add token here"
 CHANNEL_ID = "C085P82Q4R4"
 
