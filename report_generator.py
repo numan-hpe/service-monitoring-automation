@@ -3,7 +3,6 @@ from datetime import datetime
 from error_utils import _ordinal, _summarize_errors
 from config import HUMIO_DASHBOARD_DISPLAY_NAMES
 
-
 class HumioReportGenerator:
     
     @staticmethod
