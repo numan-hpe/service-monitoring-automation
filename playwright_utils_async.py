@@ -11,7 +11,7 @@ if root_dir not in sys.path:
 
 # Import from root config.py
 import importlib.util
-config_path = os.path.join(root_dir, 'graphana-automation-selenium\config.py')
+config_path = os.path.join(root_dir, 'config.py')
 spec = importlib.util.spec_from_file_location("root_config", config_path)
 root_config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(root_config)
