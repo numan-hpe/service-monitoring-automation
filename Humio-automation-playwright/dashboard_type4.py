@@ -24,6 +24,14 @@ class DashboardType4Automation:
                 "id": "96ccea84-6792-4b32-8f90-e3627d4e38ac",
                 "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
             },
+            "copper": {
+                "id": "46cc91ed-a5bb-467e-88ab-7071ccb80c38",
+                "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
+            },
+            "gallium": {
+                "id": "56f90f9e-a12c-4c59-b32a-48851f259229",
+                "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
+            },
             "pii_count": {
                 "id": "c5ffcf80-dfdc-4b3d-b34c-4c17fc6f0156",
                 "content_selector": "div.widget-box__content.z-40 > div > div.w-full.h-full > div > div > div"
@@ -48,6 +56,14 @@ class DashboardType4Automation:
             },
             "zinc": {
                 "id": "96ccea84-6792-4b32-8f90-e3627d4e38ac",
+                "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
+            },
+            "copper": {
+                "id": "46cc91ed-a5bb-467e-88ab-7071ccb80c38",
+                "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
+            },
+            "gallium": {
+                "id": "56f90f9e-a12c-4c59-b32a-48851f259229",
                 "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
             },
             "pii_count": {
@@ -76,6 +92,14 @@ class DashboardType4Automation:
                 "id": "96ccea84-6792-4b32-8f90-e3627d4e38ac",
                 "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
             },
+            "copper": {
+                "id": "46cc91ed-a5bb-467e-88ab-7071ccb80c38",
+                "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
+            },
+            "gallium": {
+                "id": "56f90f9e-a12c-4c59-b32a-48851f259229",
+                "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
+            },
             "pii_count": {
                 "id": "552e037b-cf00-4f2f-a353-7c4b8021e311",
                 "content_selector": "div.widget-box__content.z-40 > div > div.w-full.h-full > div > div > div"
@@ -101,6 +125,14 @@ class DashboardType4Automation:
             "zinc": {
                 "id": "96ccea84-6792-4b32-8f90-e3627d4e38ac",
                 "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div > table"
+            },
+            "copper": {
+                "id": "46cc91ed-a5bb-467e-88ab-7071ccb80c38",
+                "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
+            },
+            "gallium": {
+                "id": "56f90f9e-a12c-4c59-b32a-48851f259229",
+                "table_selector": "div.widget-box__content.z-40 > div > div.flex.flex-1.flex-col.h-full.table-widget > div.flex.flex-col.flex-1.overflow-auto.h-full > table"
             },
             "pii_count": {
                 "id": "67974173-bcd5-42e3-8072-ba37f8fe323c",
@@ -461,6 +493,12 @@ class DashboardType4Automation:
 
     async def _extract_zinc_errors(self):
         return await self._extract_widget_errors("zinc", "Zinc-Errors")
+    
+    async def _extract_copper_errors(self):
+        return await self._extract_widget_errors("copper", "Copper-Errors")
+    
+    async def _extract_gallium_errors(self):        
+        return await self._extract_widget_errors("gallium", "Gallium-Errors")
 
     async def _extract_pii_count(self):
         try:
@@ -567,6 +605,18 @@ class DashboardType4Automation:
             zinc_result = await self._extract_zinc_errors()
             self.service_errors["zinc"] = zinc_result["errors"]
             self.widgets.append(zinc_result)
+            await self.page.wait_for_timeout(1000)
+
+            print("[Type 4] Extracting Copper-Errors widget...")
+            copper_result = await self._extract_copper_errors()
+            self.service_errors["copper"] = copper_result["errors"]
+            self.widgets.append(copper_result)
+            await self.page.wait_for_timeout(1000)
+
+            print("[Type 4] Extracting Gallium-Errors widget...")
+            gallium_result = await self._extract_gallium_errors()
+            self.service_errors["gallium"] = gallium_result["errors"]
+            self.widgets.append(gallium_result)
             await self.page.wait_for_timeout(1000)
             
             # Step 7: Extract PII Count widget
