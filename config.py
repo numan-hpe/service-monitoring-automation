@@ -1,4 +1,4 @@
-USER_EMAIL = "deeksha.jayanth@hpe.com"
+USER_EMAIL = "<user-email>@hpe.com"
 BOT_TOKEN = "Add token here"
 CHANNEL_ID = "C085P82Q4R4"
 
@@ -44,7 +44,7 @@ _HUMIO_FROM_CONVERTED = _convert_humio_time(HUMIO_FROM)
 _HUMIO_TO_CONVERTED = _convert_humio_time(HUMIO_TO)
 
 # GRAPHANA CONFIGURATION
-SERVICES = ["keysmith", "charger", "charger-delta", "zinc-app", "roundup", "neptune"]
+SERVICES = ["keysmith", "charger", "charger-delta", "zinc-app", "roundup", "neptune", "copper", "gallium"]
 
 def get_services_string(region):
     services = [
@@ -57,7 +57,7 @@ GRAPHANA_REGION_DATA = {
     "ccprodusw2": f"https://ccprodusw2-us-west-2.cloudops.compute.cloud.hpe.com/tenant-monitoring/d/uid_chk_eng_lght/rugby-daily-check-engine-light?orgId=1&from={GRAPHANA_FROM}&to={GRAPHANA_TO}&timezone={GRAPHANA_TIMEZONE}&" + get_services_string("ccprodusw2"),
     "ccprodeuc1": f"https://ccprodeuc1-eu-central-1.cloudops.compute.cloud.hpe.com/tenant-monitoring/d/uid_chk_eng_lght/rugby-daily-check-engine-light?orgId=1&from={GRAPHANA_FROM}&to={GRAPHANA_TO}&timezone={GRAPHANA_TIMEZONE}&" + get_services_string("ccprodeuc1"),
     "ccprodane1": f"https://ccprodane1-ap-northeast-1.cloudops.compute.cloud.hpe.com/tenant-monitoring/d/uid_chk_eng_lght/rugby-daily-check-engine-light?orgId=1&from={GRAPHANA_FROM}&to={GRAPHANA_TO}&timezone={GRAPHANA_TIMEZONE}&" + get_services_string("ccprodane1"),
-    "pre-prod": f"https://ccpreusw2-us-west-2.cloudops.compute.cloud.hpe.com/tenant-monitoring/d/uid_chk_eng_lght/rugby-daily-check-engine-light?orgId=1&from={GRAPHANA_FROM}&to={GRAPHANA_TO}&timezone={GRAPHANA_TIMEZONE}&" + get_services_string("pre-prod"),
+    "pre-prod": f"https://ccpreusw2-us-west-2.cloudops.compute.cloud.hpe.com/tenant-monitoring/d/uid_chk_eng_lght/rugby-daily-check-engine-light?orgId=1&var-instance=pre-prod&from={GRAPHANA_FROM}&to={GRAPHANA_TO}&timezone={GRAPHANA_TIMEZONE}&" + get_services_string("pre-prod"),
 }
 
 GRAPHANA_HEADINGS = {
