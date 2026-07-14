@@ -18,22 +18,18 @@ sys.path.insert(0, humio_dir)
 from config import (
     GRAPHANA_REGION_DATA,
     GRAPHANA_HEADINGS,
-    HUMIO_DASHBOARD_URLS,
-    HUMIO_ENV_DISPLAY_NAMES,
-    HUMIO_DASHBOARD_DISPLAY_NAMES,
-    USER_EMAIL,
 )
-from error_utils import _ordinal, _extract_main_error, _summarize_errors
 from report_generator import HumioReportGenerator
 
 from pdf_generator import generate_pdf
 from playwright_utils_async import (
     login_user_async,
     close_menu_async,
-    scroll_to_widget_async,
     get_value_async,
     get_table_data_async,
     take_screenshots_async,
+    scroll_to_page_bottom_async,
+    wait_for_widgets_to_load,
 )
 from dashboard_automation_main import run_all_environments_comprehensive_report_with_context
 
@@ -103,48 +99,31 @@ class UnifiedAutomation:
                 await asyncio.sleep(5)               
                 await close_menu_async(self.page)
                 
-                # SLI
-                await scroll_to_widget_async(self.page, GRAPHANA_HEADINGS["sli"])
+                await scroll_to_page_bottom_async(self.page)
+                await wait_for_widgets_to_load(self.page)
+
                 output["sli"] = await get_value_async(self.page, GRAPHANA_HEADINGS["sli"])
-                
-                # Websockets
-                await scroll_to_widget_async(self.page, GRAPHANA_HEADINGS["websockets"])
                 output["websockets"] = await get_value_async(self.page, GRAPHANA_HEADINGS["websockets"], region)
-                
-                # duration > 500ms
-                await scroll_to_widget_async(self.page, GRAPHANA_HEADINGS["duration_over_500ms"])
                 output["duration_over_500ms"] = await get_table_data_async(
                     self.page, region, GRAPHANA_HEADINGS["duration_over_500ms"]
                 )
-                
-                # HTTP 5x
-                await scroll_to_widget_async(self.page, GRAPHANA_HEADINGS["http_5x"])
+                output["duration_over_500ms_special"] = await get_table_data_async(
+                    self.page, region, GRAPHANA_HEADINGS["duration_over_500ms_special"]
+                )
                 output["http_5x"] = await get_table_data_async(self.page, region, GRAPHANA_HEADINGS["http_5x"])
-                
-                # Pod restarts
-                await scroll_to_widget_async(self.page, GRAPHANA_HEADINGS["pod_restarts"])
                 output["pod_restarts"] = await get_table_data_async(
                     self.page, region, GRAPHANA_HEADINGS["pod_restarts"], two_cols=True
                 )
-                
-                # Pod counts
-                await scroll_to_widget_async(self.page, GRAPHANA_HEADINGS["pod_counts"])
                 output["pod_counts"] = await get_table_data_async(
                     self.page, region, GRAPHANA_HEADINGS["pod_counts"], three_cols=True
                 )
-                
-                # Memory utilization
-                await scroll_to_widget_async(self.page, GRAPHANA_HEADINGS["memory"])
                 output["memory"] = await get_table_data_async(
                     self.page, region, GRAPHANA_HEADINGS["memory"], two_cols=True
                 )
-                
-                # CPU utilization
-                await scroll_to_widget_async(self.page, GRAPHANA_HEADINGS["cpu"])
                 output["cpu"] = await get_table_data_async(self.page, region, GRAPHANA_HEADINGS["cpu"], two_cols=True)
                 
                 # Screenshots
-                screenshots = await take_screenshots_async(self.page, region)
+                await take_screenshots_async(self.page, region)
                 
                 with open(os.path.join(region, "data.json"), "w") as json_file:
                     json.dump(output, json_file, indent=4)
