@@ -1,22 +1,11 @@
 import asyncio
 import io
 from PIL import Image
-import sys
-import os
-
-# Import from root config (parent directory)
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
 
 # Import from root config.py
 import importlib.util
 
-folder = "service-monitoring-automation"
-if not os.path.exists(os.path.join(root_dir, folder)):
-    folder = "graphana-automation-selenium"  # Old repo name, fallback to this if the new name doesn't exist
-config_path = os.path.join(root_dir, folder, "config.py")
-spec = importlib.util.spec_from_file_location("root_config", config_path)
+spec = importlib.util.spec_from_file_location("root_config", './config.py')
 root_config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(root_config)
 
