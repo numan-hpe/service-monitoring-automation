@@ -66,7 +66,7 @@ async def run_all_environments_comprehensive_report_with_context(shared_context=
                             "dashboard_type_4": "Service-Errors",
                         }.get(dashboard_type, dashboard_type)
                         try:
-                            if not (env_key == "env1" and idx == 0):
+                            if not (owns_browser and env_key == "env1" and idx == 0):
                                 await page.goto(dashboard_url, wait_until="domcontentloaded", timeout=60000)
                                 await page.wait_for_load_state("domcontentloaded")
                                 await page.wait_for_timeout(3000)

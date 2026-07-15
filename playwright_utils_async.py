@@ -1,18 +1,11 @@
 import asyncio
 import io
 from PIL import Image
-import sys
-import os
-
-# Import from root config (parent directory)
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
 
 # Import from root config.py
 import importlib.util
-config_path = os.path.join(root_dir, 'graphana-automation-selenium\config.py')
-spec = importlib.util.spec_from_file_location("root_config", config_path)
+
+spec = importlib.util.spec_from_file_location("root_config", './config.py')
 root_config = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(root_config)
 
@@ -52,48 +45,50 @@ async def login_user_async(page):
 
 
 async def wait_for_widgets_to_load(page, max_timeout=180):
-    await page.wait_for_function(
-        "() => document.querySelectorAll('div[aria-label=\"Panel loading bar\"]').length === 0",
-        timeout=max_timeout * 1000,
-    )
+    try:
+        await page.wait_for_load_state("networkidle", timeout=max_timeout * 1000)
+    except Exception as e:
+        print(f"\033[91mWidgets took too long to load, please try again: {e}\033[0m")
+        raise e
 
+
+async def scroll_to_page_bottom_async(page):
+    # Scroll to page bottom to ensure all widgets are loaded
+    try:
+        container = page.locator(
+            "xpath=//div[contains(@data-testid, 'DashboardEditPaneSplitter') and contains(@data-testid, 'body') and contains(@data-testid, 'container')]"
+        )
+        container_first = container.first
+        await container_first.wait_for(timeout=30000)
+        step = 500
+        scroll_height = await container_first.evaluate("el => el.scrollHeight")
+        steps = scroll_height // step + 1
+        
+        for _ in range(steps):
+            await container_first.evaluate(
+                "(el, increment) => { el.scrollTop = el.scrollTop + increment; }",
+                step,
+            )
+            await asyncio.sleep(0.2)
+
+        print(f"Scrolled to page bottom...")
+    except Exception as e:
+        print(f"Could not scroll to page bottom: {e}")
+        await page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
+    await asyncio.sleep(0.5)
 
 async def scroll_to_widget_async(page, heading=None, xpath=None):
     print(f"Scrolling to widget: '{heading or xpath}'")
     xpath = xpath or f"//*[contains(text(), '{heading}')]"
-    attempts = 0
     try:
-        scroll_container = page.locator("#page-scrollbar")
-        if await scroll_container.count() == 0:
-            scroll_container = None
-    except Exception:
-        scroll_container = None
-
-    try:
-        while attempts < 20:
-            if await page.locator(xpath).count() > 0:
-                print(f"Found widget: '{heading or xpath}'")
-                break
-            if scroll_container:
-                await page.evaluate(
-                    "(el) => { el.scrollTop = el.scrollTop + 300; }",
-                    await scroll_container.element_handle(),
-                )
-            else:
-                await page.evaluate("() => window.scrollBy(0, 300)")
+        if await page.locator(xpath).count() > 0:
+            print(f"Found widget: '{heading or xpath}'")
+            widget = page.locator(xpath).first
+            await widget.scroll_into_view_if_needed()
             await asyncio.sleep(0.5)
-            attempts += 1
-        widget = page.locator(xpath).first
-        await widget.scroll_into_view_if_needed()
-        if scroll_container:
-            await page.evaluate(
-                "(el) => { el.scrollTop = el.scrollTop - 100; }",
-                await scroll_container.element_handle(),
-            )
+            await wait_for_widgets_to_load(page)
         else:
-            await page.evaluate("() => window.scrollBy(0, -100)")
-        await asyncio.sleep(0.5)
-        await wait_for_widgets_to_load(page)
+            print(f"\033[91mWidget not found: '{heading or xpath}'\033[0m")
     except Exception as e:
         print(f"\033[91mCould not scroll to widget {heading or xpath}: {e}\033[0m")
 
@@ -130,6 +125,8 @@ async def take_screenshots_async(page, region):
 
 
 async def get_table_data_async(page, region, heading, two_cols=False, three_cols=False):
+    if region == "pre-prod" and heading == HEADINGS["http_5x"]:
+        heading = "HTTP 5x responses  (Click Data Points for more info)"
     table_xpath = f"//div[(@data-griditem-key or @data-panelid) and .//span[contains(text(), '{heading}')]]/following-sibling::div[2]//table"
     try:
         name_header = page.locator(f"{table_xpath}//th[@title='name']")
@@ -140,11 +137,13 @@ async def get_table_data_async(page, region, heading, two_cols=False, three_cols
         pass
 
     try:
-        col_1 = await page.locator(f"{table_xpath}//td[1]").all()
+        col_1 = await page.locator(
+            f"{table_xpath}//td[not(.//div[@data-testid='series-icon'])][1]"
+        ).all()
         if two_cols or three_cols:
-            col_2 = await page.locator(f"{table_xpath}//td[2]").all()
+            col_2 = await page.locator(f"{table_xpath}//td[not(.//div[@data-testid='series-icon'])][2]").all()
         if three_cols:
-            col_3 = await page.locator(f"{table_xpath}//td[3]").all()
+            col_3 = await page.locator(f"{table_xpath}//td[not(.//div[@data-testid='series-icon'])][3]").all()
         if len(col_1) == 0:
             return "No data"
         else:
