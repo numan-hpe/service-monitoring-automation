@@ -154,37 +154,37 @@ class DashboardType4Automation:
             print("[Type 4] Waiting for dashboard to load completely...")
             loading_bar = self.page.locator("#humio-doc > div > div > div.h-px.flex-1.flex.items-stretch > div > div > div.dashboard__top-panel > div > div > div.absolute.inset-x-0.top-0 > div > div")
             try:
-                await loading_bar.wait_for(state="visible", timeout=5000)
+                await loading_bar.wait_for(state="visible", timeout=2000)
                 print("[Type 4] Loading bar detected")
             except Exception as e:
-                print(f"[Type 4] Loading bar not found: {e}")
-                print("[Type 4] Using fallback wait (3 seconds)...")
-                await self.page.wait_for_timeout(3000)
+                print(f"[Type 4] Loading bar not found, using fallback wait (2 seconds)...")
+                await self.page.wait_for_timeout(2000)
                 return True
-            max_wait = 30  # Maximum 30 seconds (reduced from 60)
+            
+            # Try to wait for 100% progress, but give up quickly
+            max_wait = 10  # Maximum 10 seconds
             for i in range(max_wait):
                 try:
                     progress_bar = loading_bar.locator("div.progress-bar__progress")
-                    style_attr = await progress_bar.get_attribute("style", timeout=1000)
+                    style_attr = await progress_bar.get_attribute("style", timeout=500)
                     if style_attr and "width: 100%" in style_attr:
                         print("[Type 4] Dashboard fully loaded (100%)")
-                        await self.page.wait_for_timeout(1000)
+                        await self.page.wait_for_timeout(500)
                         return True
                     if style_attr and "width:" in style_attr:
                         width_match = style_attr.split("width:")[1].split(";")[0].strip()
-                        if i % 5 == 0:
+                        if i % 3 == 0:
                             print(f"[Type 4] Loading... ({width_match})")
                     await self.page.wait_for_timeout(1000)
-                except Exception as e:
-                    if i == 0:
-                        print(f"[Type 4] Error checking progress: {e}")
-                    await self.page.wait_for_timeout(1000)
+                except:
+                    # Progress bar locator timeout or missing - skip and continue
+                    await self.page.wait_for_timeout(500)
                     continue
             print("[Type 4] Loading bar did not reach 100% within timeout, proceeding anyway...")
             return True
         except Exception as e:
-            print(f"[Type 4] Dashboard load check failed: {e}, proceeding anyway...")
-            await self.page.wait_for_timeout(3000)
+            print(f"[Type 4] Dashboard load check failed, proceeding anyway...")
+            await self.page.wait_for_timeout(2000)
             return True
 
     async def _wait_for_widget_load(self, widget, title):
@@ -263,12 +263,39 @@ class DashboardType4Automation:
         prev_page_errors = set()
         repeating_detected = False
         has_many_pages = False  # Track if there are many pages
+        
+        # Fallback selectors if primary fails
+        fallback_selectors = [
+            table_selector,  # Try primary first
+            "div.widget-box__content table",
+            "table",
+            "div.table-widget table",
+            "div.overflow-auto table",
+        ]
+        
+        async def find_table_with_fallback():
+            """Try multiple selectors to find the table."""
+            for selector in fallback_selectors:
+                try:
+                    test_table = widget.locator(selector)
+                    await test_table.wait_for(state="visible", timeout=2000)
+                    return test_table
+                except:
+                    continue
+            return None
+        
         async def extract_current_page(page_label=None):
             nonlocal prev_page_errors, repeating_detected
-            table = widget.locator(table_selector)
-            await table.wait_for(state="visible", timeout=5000)
+            table = await find_table_with_fallback()
+            if not table:
+                print(f"[Type 4] {title}: Could not find table with any selector")
+                return False
             tbody = table.locator("tbody")
-            await tbody.wait_for(state="visible", timeout=3000)
+            try:
+                await tbody.wait_for(state="visible", timeout=3000)
+            except:
+                print(f"[Type 4] {title}: Could not find tbody in table")
+                return False
             rows = tbody.locator("tr")
             row_count = await rows.count()
             if page_label:
@@ -294,6 +321,7 @@ class DashboardType4Automation:
                 repeating_detected = True
                 print(f"[Type 4] {title}: Same errors detected on consecutive pages")
             prev_page_errors = current_page_errors
+            return True
 
         try:
             pagination_selectors = [
@@ -320,11 +348,15 @@ class DashboardType4Automation:
                     continue
             
             if buttons is None or await buttons.count() == 0:
-                await extract_current_page()
+                success = await extract_current_page()
+                if not success:
+                    print(f"[Type 4] {title}: Could not extract data from widget")
             else:
                 btn_count = await buttons.count()
                 if btn_count == 0:
-                    await extract_current_page()
+                    success = await extract_current_page()
+                    if not success:
+                        print(f"[Type 4] {title}: Failed to extract from single page")
                 else:
                     current_label = None
                     all_labels = []
@@ -337,9 +369,13 @@ class DashboardType4Automation:
                         if aria_current and aria_current.lower() == "true":
                             current_label = aria_label
                     if current_label:
-                        await extract_current_page(current_label)
+                        success = await extract_current_page(current_label)
+                        if not success:
+                            print(f"[Type 4] {title}: Failed to extract from labeled page")
                     else:
-                        await extract_current_page()
+                        success = await extract_current_page()
+                        if not success:
+                            print(f"[Type 4] {title}: Failed to extract from current page")
                     import re
                     outer_html = ""
                     try:
@@ -408,7 +444,12 @@ class DashboardType4Automation:
                         for _ in range(10):
                             await self.page.wait_for_timeout(500)
                             try:
-                                new_signature = (await widget.locator(table_selector).locator("tbody").inner_text(timeout=2000)).strip()
+                                table = await find_table_with_fallback()
+                                if table:
+                                    tbody = table.locator("tbody")
+                                    new_signature = (await tbody.inner_text(timeout=2000)).strip()
+                                else:
+                                    new_signature = ""
                             except Exception:
                                 new_signature = ""
                             if new_signature and new_signature != prev_signature:
@@ -418,7 +459,9 @@ class DashboardType4Automation:
                         if not changed:
                             print(f"[Type 4] {title}: Pagination did not change content after click, continuing.")
                             continue
-                        await extract_current_page(label)
+                        success = await extract_current_page(label)
+                        if not success:
+                            print(f"[Type 4] {title}: Failed to extract from pagination page {label}")
                         pages_checked += 1
 
         except Exception as e:

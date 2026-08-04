@@ -71,9 +71,25 @@ def _extract_main_error(error_text):
     if 'Unhandled exception checking is_ready for module' in error_text:
         return 'Unhandled exception checking is_ready for module'
     
-    if 'Failed fetch messages' in error_text:
-        return 'Failed fetch messages: [Connection Error]'
-    
+    if 'Failed to process connectivity status message on topic' in error_text:
+        # Extract just the topic base name (strip env-specific prefix variations)
+        topic_match = re.search(r'on topic (\S+)', error_text)
+        topic = topic_match.group(1) if topic_match else 'topic'
+        # Normalize topic to remove env-specific prefix (e.g. ccprodusw2_ -> keep just the type)
+        topic_short = re.sub(r'^ccprod\w+_', '', topic)
+        return f"Failed to process connectivity status message on topic {topic_short}; committing to avoid blocking"
+
+    if 'publish_connectivity_msg_to_pod failed' in error_text:
+        # Group all device types together
+        device_match = re.search(r'for device\s+(\S+)', error_text)
+        if device_match:
+            device = device_match.group(1).rstrip('+')
+            return f"publish_connectivity_msg_to_pod failed for device {device}+"
+        return 'publish_connectivity_msg_to_pod failed for device'
+
+    if 'Unable connect to node with id' in error_text:
+        return 'Unable connect to node with id'
+
     if 'Heartbeat send request failed' in error_text:
         return 'Heartbeat send request failed: KafkaConnectionError'
     
