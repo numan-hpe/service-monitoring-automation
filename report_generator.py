@@ -118,7 +118,9 @@ class HumioReportGenerator:
     def _format_generic_dashboard(dashboard_obj, report_lines):
         if hasattr(dashboard_obj, "result"):
             result = dashboard_obj.result
-            if "No errors" in result:
+            if "WIDGET EXTRACTION FAILED" in result:
+                report_lines.append("  o ⚠ WIDGET EXTRACTION FAILED - Dashboard structure may have changed")
+            elif "No errors" in result:
                 report_lines.append("  o No errors")
             elif " - " in result:
                 parts = result.split(" - ", 1)

@@ -136,21 +136,34 @@ class DashboardType2Automation:
             print(f"Could not scroll: {e}")
     
         errors = []
+        extraction_failed = False
         
         si_count = await self.get_service_instance_errors()
-        if si_count is not None and si_count > 0:
+        if si_count is None:
+            extraction_failed = True
+            print("⚠ WARNING: Failed to extract service instance errors")
+        elif si_count > 0:
             errors.append(f"{si_count} Service instance ERROR (CDS)")
         
         upload_count = await self.get_upload_errors()
-        if upload_count is not None and upload_count > 0:
+        if upload_count is None:
+            extraction_failed = True
+            print("⚠ WARNING: Failed to extract upload errors")
+        elif upload_count > 0:
             errors.append(f"{upload_count} Upload ERROR (CDS)")
         
         charger_count = await self.get_charger_schedules_errors()
-        if charger_count is not None and charger_count > 0:
+        if charger_count is None:
+            extraction_failed = True
+            print("⚠ WARNING: Failed to extract charger schedules errors")
+        elif charger_count > 0:
             errors.append(f"{charger_count} Charger Schedules ERROR")
         
         license_count = await self.get_license_oversubscribe_count()
-        if license_count is not None and license_count > 0:
+        if license_count is None:
+            extraction_failed = True
+            print("⚠ WARNING: Failed to extract license oversubscribe count")
+        elif license_count > 0:
             errors.append(f"{license_count} Advanced License Oversubscribe Detection Count")
         
         charger_errors = await self.get_charger_errors()
@@ -158,10 +171,16 @@ class DashboardType2Automation:
             errors.append(f"Charger Errors: {charger_errors[:100]}")
         
         skipped_count = await self.get_skipped_servers_count()
-        if skipped_count is not None and skipped_count > 0:
+        if skipped_count is None:
+            extraction_failed = True
+            print("⚠ WARNING: Failed to extract skipped servers count")
+        elif skipped_count > 0:
             errors.append(f"{skipped_count} Skipped servers")
         
-        if errors:
+        if extraction_failed and not errors:
+            self.result = f"{self.dashboard_name} - ⚠ WIDGET EXTRACTION FAILED"
+            print("⚠ WARNING: Multiple widget extractions failed - dashboard structure may have changed")
+        elif errors:
             errors_text = " | ".join(errors)
             self.result = f"   {self.dashboard_name} - {errors_text}"
         else:

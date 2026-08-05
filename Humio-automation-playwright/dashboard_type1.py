@@ -25,7 +25,8 @@ class DashboardType1Automation:
         #Generate summary based on failed upload count.
         failed_count = await self.get_failed_upload_count()
         if failed_count is None:
-            self.result = f"{self.dashboard_name}\nUnable to determine status"
+            self.result = f"{self.dashboard_name}\n⚠ WIDGET EXTRACTION FAILED - Unable to determine status"
+            print("⚠ WARNING: Failed to extract upload count - widget may have changed")
             return
         if failed_count == 0:
             self.result = f"{self.dashboard_name}\nNo errors"
