@@ -253,11 +253,6 @@ class UnifiedAutomation:
             humio_report_path = self.generate_humio_report()
             logger.info(f"Humio report saved: {humio_report_path}\n")
             
-            # Ask user if they want to close the browser
-            logger.info("Browser will remain open for 30 seconds for inspection...")
-            logger.info("You can review the results in the browser.")
-            await asyncio.sleep(30)
-            
             # Close browser
             logger.info("\nClosing browser...")
             await self.cleanup()

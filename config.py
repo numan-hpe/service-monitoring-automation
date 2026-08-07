@@ -1,6 +1,4 @@
-USER_EMAIL = "<user-email>@hpe.com"
-BOT_TOKEN = "Add token here"
-CHANNEL_ID = "C085P82Q4R4"
+USER_EMAIL = "numan.naeem@hpe.com"
 
 # Grafana time range parameters (defaults to last 24 hours from now)
 # Examples:
@@ -128,3 +126,9 @@ HUMIO_HEADINGS = {
     "unknown_errors": "Unknown Error during server_metric_data message processing",
     "bisbee_errors": "Exception while uploading file to bisbee",
 }
+
+# File upload configuration
+VM_HOST = "10.152.99.103"
+VM_USERNAME = "vagrant"
+VM_PASSWORD = "vagrant"
+VM_BASE_PATH = "/home/vagrant/rugby/AI-report-analysis"

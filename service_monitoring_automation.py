@@ -5,6 +5,7 @@ import os
 
 from report_generator import HumioReportGenerator
 from datetime import date
+from vm_transfer_utils import move_reports_and_data_to_vm
 
 # UTF-8 encoding for proper Unicode character display on Windows
 if sys.platform.startswith('win'):
@@ -15,7 +16,6 @@ if sys.platform.startswith('win'):
 # Centralize Python cache to root .pycache directory
 project_root = os.path.dirname(os.path.abspath(__file__))
 os.environ['PYTHONPYCACHEPREFIX'] = os.path.join(project_root, '.pycache')
-
 
 async def run_unified_automation(mode="all"):
     from unified_automation import UnifiedAutomation
@@ -90,6 +90,7 @@ Examples:
     python service_monitoring_automation.py              # Run both Grafana and Humio (default)
     python service_monitoring_automation.py --graphana    # Run only Grafana automation
     python service_monitoring_automation.py --humio      # Run only Humio automation
+    python service_monitoring_automation.py --upload-only # Move latest reports/data folders to VM only
         """
     )
     
@@ -103,8 +104,22 @@ Examples:
         action="store_true",
         help="Run only Humio automation"
     )
+    parser.add_argument(
+        "--upload-only",
+        action="store_true",
+        help="Only move latest reports and data folders to VM"
+    )
+    parser.add_argument(
+        "--skip-vm-upload",
+        action="store_true",
+        help="Skip VM upload after successful all/humio automation"
+    )
     
     args = parser.parse_args()
+
+    if args.upload_only:
+        success = move_reports_and_data_to_vm()
+        sys.exit(0 if success else 1)
     
     # Determine mode
     if args.graphana and args.humio:
@@ -119,6 +134,13 @@ Examples:
     
     # Run automation
     success = asyncio.run(run_unified_automation(mode))
+
+    if success and mode in {"all", "humio"} and not args.skip_vm_upload:
+        print("\n=== Moving reports/data folders to VM ===")
+        upload_success = move_reports_and_data_to_vm()
+        success = success and upload_success
+    
+    
     exit(0 if success else 1)
 
 if __name__ == "__main__":
