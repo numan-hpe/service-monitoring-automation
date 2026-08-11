@@ -2,8 +2,7 @@ import asyncio
 import os
 from playwright.async_api import async_playwright
 import logging
-import json
-from config import USER_EMAIL, SESSION_COOKIES_PATH
+from config import USER_EMAIL, BROWSER_USER_DATA_DIR
 
 # Configure logging
 logging.basicConfig(
@@ -40,27 +39,28 @@ class HumioLoginAutomation:
             self.context = self.shared_context
             self.page = self.shared_page or await self.context.new_page()
             return
-        logger.info("Launching browser...")
+        logger.info("Launching browser with persistent profile...")
         self.playwright = await async_playwright().start()
-        launch_kwargs = {"headless": False, "args": ["--start-maximized"]}
+        launch_kwargs = {"headless": False, "no_viewport": True, "args": ["--start-maximized"]}
         if self.browser_channel != "chromium":
             launch_kwargs["channel"] = self.browser_channel
         try:
-            self.browser = await self.playwright.chromium.launch(**launch_kwargs)
-            self.context = await self.browser.new_context(no_viewport=True)
-            await self._load_session_cookies()
-            self.page = await self.context.new_page()
-            logger.info("Browser launched successfully")
+            os.makedirs(BROWSER_USER_DATA_DIR, exist_ok=True)
+            self.context = await self.playwright.chromium.launch_persistent_context(
+                BROWSER_USER_DATA_DIR, **launch_kwargs
+            )
+            self.page = self.context.pages[0] if self.context.pages else await self.context.new_page()
+            logger.info("Browser launched successfully with persistent profile")
         except Exception as e:
             logger.error(f"Failed to launch browser with channel '{self.browser_channel}': {e}")
             if self.browser_channel != "chromium":
                 logger.info("Retrying with default Chromium channel...")
                 try:
-                    fallback_kwargs = {"headless": False, "args": ["--start-maximized"]}
-                    self.browser = await self.playwright.chromium.launch(**fallback_kwargs)
-                    self.context = await self.browser.new_context(no_viewport=True)
-                    await self._load_session_cookies()
-                    self.page = await self.context.new_page()
+                    fallback_kwargs = {"headless": False, "no_viewport": True, "args": ["--start-maximized"]}
+                    self.context = await self.playwright.chromium.launch_persistent_context(
+                        BROWSER_USER_DATA_DIR, **fallback_kwargs
+                    )
+                    self.page = self.context.pages[0] if self.context.pages else await self.context.new_page()
                     logger.info("Browser launched successfully with Chromium fallback")
                     return
                 except Exception as fallback_error:
@@ -80,34 +80,6 @@ class HumioLoginAutomation:
             logger.error(f"Failed to navigate: {e}")
             raise
 
-    async def _load_session_cookies(self):
-        # Load cookies exported from Selenium to reuse existing login session.
-        try:
-            if not os.path.exists(SESSION_COOKIES_PATH):
-                return
-            with open(SESSION_COOKIES_PATH, "r", encoding="utf-8") as f:
-                cookies = json.load(f)
-            if not cookies:
-                return
-            normalized = []
-            for c in cookies:
-                cookie = {
-                    "name": c.get("name"),
-                    "value": c.get("value"),
-                    "domain": c.get("domain"),
-                    "path": c.get("path", "/"),
-                    "expires": c.get("expiry", -1),
-                    "httpOnly": c.get("httpOnly", False),
-                    "secure": c.get("secure", False),
-                    "sameSite": "Lax",
-                }
-                if cookie["name"] and cookie["value"] and cookie["domain"]:
-                    normalized.append(cookie)
-            if normalized:
-                await self.context.add_cookies(normalized)
-                logger.info("Loaded session cookies from Selenium export")
-        except Exception as e:
-            logger.warning(f"Could not load session cookies: {e}")
     async def fill_email(self):
         logger.info(f"Waiting for email field...")
         try:
@@ -190,6 +162,23 @@ class HumioLoginAutomation:
         try:
             await self.setup_browser()
             await self.navigate_to_login_page()
+
+            # Check if session is still valid (persistent profile skips login)
+            try:
+                await self.page.wait_for_url("**/dashboards/**", timeout=10000)
+                logger.info("Session still valid, skipping login.")
+                return True
+            except Exception:
+                pass
+
+            # Check if email field appears — if not, SSO session is still valid
+            try:
+                await self.page.wait_for_selector(self.email_input, timeout=10000)
+            except Exception:
+                await self.page.wait_for_url("**/dashboards/**", timeout=60000)
+                logger.info("SSO session reused, login skipped.")
+                return True
+
             await self.fill_email()
             await self.click_next()
             await self.wait_for_auth()

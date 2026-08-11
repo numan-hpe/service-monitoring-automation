@@ -104,6 +104,7 @@ def move_reports_and_data_to_vm():
         return moved_any
     except Exception as e:
         print(f"ERROR while moving reports/data to VM: {e}")
+        print("\n\n\033[1mPlease resolve the error and run this script with --upload-only to move the generated reports to the VM.\033[0m")
         return False
     finally:
         if sftp:

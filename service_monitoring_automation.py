@@ -110,9 +110,9 @@ Examples:
         help="Only move latest reports and data folders to VM"
     )
     parser.add_argument(
-        "--skip-vm-upload",
+        "--no-upload",
         action="store_true",
-        help="Skip VM upload after successful all/humio automation"
+        help="Skip VM upload after successful data collection"
     )
     
     args = parser.parse_args()
@@ -135,7 +135,7 @@ Examples:
     # Run automation
     success = asyncio.run(run_unified_automation(mode))
 
-    if success and mode in {"all", "humio"} and not args.skip_vm_upload:
+    if success and mode in {"all", "humio"} and not args.no_upload:
         print("\n=== Moving reports/data folders to VM ===")
         upload_success = move_reports_and_data_to_vm()
         success = success and upload_success
