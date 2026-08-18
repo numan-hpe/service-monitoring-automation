@@ -19,6 +19,12 @@ async def login_user_async(page):
     global logged_in
     login_timeout = 180  # Maximum time to wait for login (in seconds)
 
+    # Check if already on the dashboard (session still valid from persistent profile)
+    if "rugby-daily-check-engine-light" in page.url:
+        logged_in = True
+        print("Already authenticated, skipping login.")
+        return
+
     await page.locator("//a[@href='login/azuread']").wait_for(timeout=30000)
     await page.locator("//a[@href='login/azuread']").click()
 
