@@ -19,14 +19,27 @@ async def login_user_async(page):
     global logged_in
     login_timeout = 180  # Maximum time to wait for login (in seconds)
 
+    # Check if already on the dashboard (session still valid from persistent profile)
+    if "rugby-daily-check-engine-light" in page.url:
+        logged_in = True
+        print("Already authenticated, skipping login.")
+        return
+
     await page.locator("//a[@href='login/azuread']").wait_for(timeout=30000)
     await page.locator("//a[@href='login/azuread']").click()
 
     if not logged_in:
         try:
-            await page.locator("//input[@type='email']").wait_for(
-                timeout=login_timeout * 1000
-            )
+            # Wait briefly for email field — if session is valid, it won't appear
+            try:
+                await page.locator("//input[@type='email']").wait_for(timeout=10000)
+            except Exception:
+                # No email field means Okta session is still valid, wait for redirect
+                await page.wait_for_url("**/rugby-daily-check-engine-light**", timeout=login_timeout * 1000)
+                logged_in = True
+                print("Login successful (session reused)!")
+                return
+
             await page.locator("//input[@type='email']").fill(USER_EMAIL)
 
             await page.locator("//input[@type='submit']").click()

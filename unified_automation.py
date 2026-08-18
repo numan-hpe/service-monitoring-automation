@@ -18,6 +18,7 @@ sys.path.insert(0, humio_dir)
 from config import (
     GRAPHANA_REGION_DATA,
     GRAPHANA_HEADINGS,
+    BROWSER_USER_DATA_DIR,
 )
 from report_generator import HumioReportGenerator
 
@@ -50,12 +51,13 @@ class UnifiedAutomation:
         self.reports_folder = None  # Will store the reports folder path
     
     async def setup_browser(self):
-        # Initialize browser with shared session
-        logger.info("Launching browser...")
+        # Use persistent context to reuse Okta login sessions across runs
+        logger.info("Launching browser with persistent profile...")
         self.playwright = await async_playwright().start()
         browser_channel = os.getenv("BROWSER_CHANNEL", "msedge").lower()
         launch_kwargs = {
             "headless": False,
+            "no_viewport": True,
             "args": [
                 "--start-maximized",
                 "--disable-device-discovery",
@@ -69,10 +71,12 @@ class UnifiedAutomation:
         if browser_channel in {"msedge", "chrome"}:
             launch_kwargs["channel"] = browser_channel
 
-        self.browser = await self.playwright.chromium.launch(**launch_kwargs)
-        self.context = await self.browser.new_context(no_viewport=True)
-        self.page = await self.context.new_page()
-        logger.info("Browser launched successfully")
+        os.makedirs(BROWSER_USER_DATA_DIR, exist_ok=True)
+        self.context = await self.playwright.chromium.launch_persistent_context(
+            BROWSER_USER_DATA_DIR, **launch_kwargs
+        )
+        self.page = self.context.pages[0] if self.context.pages else await self.context.new_page()
+        logger.info("Browser launched successfully with persistent profile")
     
     async def run_graphana_automation(self):
         # Run Grafana automation for all regions
@@ -82,7 +86,7 @@ class UnifiedAutomation:
         
         try:
             for region, url in GRAPHANA_REGION_DATA.items():
-                output = {}    
+                output = {}
                 # Clear folder contents
                 if os.path.exists(region):
                     for root, dirs, files in os.walk(region, topdown=False):
@@ -96,9 +100,9 @@ class UnifiedAutomation:
                 logger.info(f"Opening {region} Grafana dashboard...")
                 await self.page.goto(url, wait_until="domcontentloaded")               
                 await login_user_async(self.page)
-                await asyncio.sleep(5)               
+                await asyncio.sleep(5)
                 await close_menu_async(self.page)
-                
+
                 await scroll_to_page_bottom_async(self.page)
                 await wait_for_widgets_to_load(self.page)
 
@@ -253,11 +257,6 @@ class UnifiedAutomation:
             humio_report_path = self.generate_humio_report()
             logger.info(f"Humio report saved: {humio_report_path}\n")
             
-            # Ask user if they want to close the browser
-            logger.info("Browser will remain open for 30 seconds for inspection...")
-            logger.info("You can review the results in the browser.")
-            await asyncio.sleep(30)
-            
             # Close browser
             logger.info("\nClosing browser...")
             await self.cleanup()
@@ -270,7 +269,7 @@ class UnifiedAutomation:
             return True
             
         except Exception as e:
-            logger.error(f"Error in unified automation: {traceback.format_exc()}")
+            logger.error(f"Error in data extraction: {traceback.format_exc()}")
             return False
         finally:
             # Ensure report and cleanup even if errors occurred

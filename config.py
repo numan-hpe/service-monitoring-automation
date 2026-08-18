@@ -1,6 +1,6 @@
-USER_EMAIL = "<user-email>@hpe.com"
-BOT_TOKEN = "Add token here"
-CHANNEL_ID = "C085P82Q4R4"
+import os
+
+USER_EMAIL = "numan.naeem@hpe.com"
 
 # Grafana time range parameters (defaults to last 24 hours from now)
 # Examples:
@@ -13,9 +13,8 @@ GRAPHANA_FROM = "now-24h"
 GRAPHANA_TO = "now"
 GRAPHANA_TIMEZONE = "IST"
 
-# Shared auth session (Selenium -> Playwright)
-# Note: session cookies are currently not used by the unified Playwright flow.
-SESSION_COOKIES_PATH = "session_cookies.json"
+# Persistent browser profile directory for reusing Okta login sessions
+BROWSER_USER_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".browser_data")
 
 # Time range parameters for Grafana and Humio (defaults to last 24 hours from now - today)
 # Examples:
@@ -128,3 +127,9 @@ HUMIO_HEADINGS = {
     "unknown_errors": "Unknown Error during server_metric_data message processing",
     "bisbee_errors": "Exception while uploading file to bisbee",
 }
+
+# File upload configuration
+VM_HOST = "10.152.99.103"
+VM_USERNAME = "vagrant"
+VM_PASSWORD = "vagrant"
+VM_BASE_PATH = "/home/vagrant/rugby/AI-report-analysis"

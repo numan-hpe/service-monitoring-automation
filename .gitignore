@@ -8,6 +8,7 @@ __pycache__/
 env/
 venv/
 ENV/
+.venv/
 
 # IDE
 .vscode/
@@ -26,6 +27,9 @@ pre-prod/
 # Report and output folders
 reports/
 summary reports/
+
+# Persistent browser profile for Okta session reuse
+.browser_data/
 
 # Temporary files
 *.json
