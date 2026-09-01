@@ -25,14 +25,27 @@ async def login_user_async(page):
         print("Already authenticated, skipping login.")
         return
 
-    await page.locator("//a[@href='login/azuread']").wait_for(timeout=30000)
-    await page.locator("//a[@href='login/azuread']").click()
+    login_link = page.locator(
+        "a[href='login/azuread'], a[href='login/generic_oauth']"
+    ).first
+    await login_link.wait_for(timeout=30000)
+    await login_link.click()
+
+    try:
+        # In case of pre-prod, re-login may be required, hence wait for the dashboard URL to confirm login
+        await page.wait_for_url("**/rugby-daily-check-engine-light**", timeout=10000)
+        logged_in = True
+    except Exception:
+        logged_in = False
 
     if not logged_in:
         try:
             # Wait briefly for email field — if session is valid, it won't appear
+            email_input = page.locator(
+                "//input[@type='email' or @type='text']"
+            ).first # pre-prod has type = text
             try:
-                await page.locator("//input[@type='email']").wait_for(timeout=10000)
+                await email_input.wait_for(timeout=10000)
             except Exception:
                 # No email field means Okta session is still valid, wait for redirect
                 await page.wait_for_url("**/rugby-daily-check-engine-light**", timeout=login_timeout * 1000)
@@ -40,14 +53,16 @@ async def login_user_async(page):
                 print("Login successful (session reused)!")
                 return
 
-            await page.locator("//input[@type='email']").fill(USER_EMAIL)
+            await email_input.fill(USER_EMAIL)
 
             await page.locator("//input[@type='submit']").click()
             await asyncio.sleep(3)
-            await page.locator("//input[@type='submit']").wait_for(
-                timeout=login_timeout * 1000
-            )
-            await page.locator("//input[@type='submit']").click()
+            try:
+                submit_input = page.locator("//input[@type='submit']").first
+                await submit_input.wait_for(timeout=10000)
+                await submit_input.click()
+            except Exception:
+                pass
 
             await page.wait_for_url("**/rugby-daily-check-engine-light**", timeout=login_timeout * 1000)
             logged_in = True
@@ -67,9 +82,10 @@ async def wait_for_widgets_to_load(page, max_timeout=180):
 
 async def scroll_to_page_bottom_async(page):
     # Scroll to page bottom to ensure all widgets are loaded
+    await asyncio.sleep(1)
     try:
         container = page.locator(
-            "xpath=//div[contains(@data-testid, 'DashboardEditPaneSplitter') and contains(@data-testid, 'body') and contains(@data-testid, 'container')]"
+            "xpath=//div[(contains(@data-testid, 'DashboardEditPaneSplitter') or contains(@data-testid, 'DashboardSidebarSplitter')) and contains(@data-testid, 'body') and contains(@data-testid, 'container')]"
         )
         container_first = container.first
         await container_first.wait_for(timeout=30000)
@@ -82,13 +98,13 @@ async def scroll_to_page_bottom_async(page):
                 "(el, increment) => { el.scrollTop = el.scrollTop + increment; }",
                 step,
             )
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(1)
 
         print(f"Scrolled to page bottom...")
     except Exception as e:
         print(f"Could not scroll to page bottom: {e}")
         await page.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(1)
 
 async def scroll_to_widget_async(page, heading=None, xpath=None):
     print(f"Scrolling to widget: '{heading or xpath}'")
@@ -193,7 +209,7 @@ async def get_table_data_async(page, region, heading, two_cols=False, three_cols
 
 async def close_menu_async(page):
     try:
-        await page.locator("#dock-menu-button").wait_for(timeout=30000)
+        await page.locator("#dock-menu-button").wait_for(timeout=20000)
         await page.locator("#dock-menu-button").click()
     except Exception as e:
         print(f"Could not close side menu: {e}")
